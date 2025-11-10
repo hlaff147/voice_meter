@@ -1,0 +1,8 @@
+name: voice_meter_mobile
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - nodejs=20.19
+  - python=3.11
+  - pip
