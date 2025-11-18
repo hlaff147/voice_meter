@@ -1,6 +1,23 @@
 # Voice Meter Backend (FastAPI)
 
-## Setup
+## 🐳 Docker Setup (Recomendado)
+
+A forma mais fácil de rodar o backend é usando Docker:
+
+```bash
+# Na raiz do projeto
+docker-compose up
+```
+
+Ou apenas o backend:
+
+```bash
+docker-compose up backend db
+```
+
+Acesse em: http://localhost:8000
+
+## 📦 Setup Manual (sem Docker)
 
 ### 1. Create Conda Environment
 

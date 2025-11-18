@@ -40,12 +40,37 @@ export const apiService = {
     return response.data;
   },
   
-  // Add more API methods here
-  // Example:
-  // getUsers: async () => {
-  //   const response = await api.get('/users');
-  //   return response.data;
-  // },
+  getCategories: async () => {
+    const response = await api.get('/api/v1/speech/categories');
+    return response.data;
+  },
+
+  analyzeSpeech: async (audioUri: string, category: string) => {
+    const formData = new FormData();
+    
+    // Get file extension from URI
+    const uriParts = audioUri.split('.');
+    const fileType = uriParts[uriParts.length - 1];
+    
+    // Create file object for form data
+    const file: any = {
+      uri: audioUri,
+      type: `audio/${fileType}`,
+      name: `recording.${fileType}`,
+    };
+    
+    formData.append('audio_file', file);
+    formData.append('category', category);
+    
+    const response = await api.post('/api/v1/speech/analyze', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 30000, // 30 seconds for audio processing
+    });
+    
+    return response.data;
+  },
 };
 
 export default api;

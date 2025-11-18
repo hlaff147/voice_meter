@@ -1,0 +1,72 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: voice_meter_db
+    environment:
+      POSTGRES_USER: voice_meter_user
+      POSTGRES_PASSWORD: voice_meter_pass
+      POSTGRES_DB: voice_meter_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voice_meter_user -d voice_meter_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - voice_meter_network
+
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: voice_meter_backend
+    environment:
+      DATABASE_URL: postgresql://voice_meter_user:voice_meter_pass@db:5432/voice_meter_db
+      SECRET_KEY: your-secret-key-change-in-production-please
+      BACKEND_CORS_ORIGINS: http://localhost:3000,http://localhost:8081,http://localhost:19006
+      DEBUG: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - voice_meter_network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Mobile App (Expo)
+  mobile:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile
+    container_name: voice_meter_mobile
+    environment:
+      EXPO_DEVTOOLS_LISTEN_ADDRESS: 0.0.0.0
+      REACT_NATIVE_PACKAGER_HOSTNAME: localhost
+    ports:
+      - "19000:19000"  # Expo DevTools
+      - "19001:19001"  # Expo DevTools
+      - "19002:19002"  # Expo DevTools
+      - "19006:19006"  # Expo Web
+      - "8081:8081"    # Metro bundler
+    volumes:
+      - ./mobile:/app
+      - /app/node_modules
+    networks:
+      - voice_meter_network
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
+
+networks:
+  voice_meter_network:
+    driver: bridge

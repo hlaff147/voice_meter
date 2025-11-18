@@ -12,7 +12,55 @@ voice_meter/
 └── scripts/          # Utility scripts
 ```
 
-## Quick Start
+## 🐳 Quick Start com Docker (Recomendado)
+
+### Pré-requisitos
+
+- [Docker](https://www.docker.com/get-started) instalado
+- [Docker Compose](https://docs.docker.com/compose/install/) instalado
+
+### Rodar tudo com um comando
+
+```bash
+docker-compose up
+```
+
+✨ **Pronto!** Isso vai iniciar:
+- **Backend API (FastAPI)** → http://localhost:8000
+- **API Docs** → http://localhost:8000/docs
+- **Mobile/Web (Expo)** → http://localhost:19006
+- **PostgreSQL Database** → localhost:5432
+
+### Comandos úteis
+
+```bash
+# Verificar se está tudo pronto
+./check-docker.sh
+
+# Iniciar com script interativo
+./start-docker.sh
+
+# Ver logs
+docker-compose logs -f
+
+# Parar tudo
+docker-compose down
+
+# Usar Makefile (mais fácil)
+make up      # Inicia
+make down    # Para
+make logs    # Logs
+make help    # Ver todos comandos
+```
+
+📖 **Documentação completa**: 
+- [Guia Docker](DOCKER.md) - Setup completo
+- [Quick Reference](DOCKER-QUICKREF.md) - Referência rápida
+- [Troubleshooting](TROUBLESHOOTING-DOCKER.md) - Resolver problemas
+
+---
+
+## 🔧 Quick Start sem Docker (Conda)
 
 ### Prerequisites
 

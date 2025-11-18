@@ -231,3 +231,8 @@ Thumbs.db
 
 # Logs
 logs/
+
+# Docker
+docker-compose.override.yml
+.env.production
+
