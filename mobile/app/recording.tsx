@@ -168,9 +168,9 @@ export default function Recording() {
             <Text style={styles.resultTitle}>Resultado da Análise</Text>
             
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Velocidade:</Text>
+              <Text style={styles.resultLabel}>Velocidade (AR):</Text>
               <Text style={[styles.resultValue, { color: categoryInfo.color }]}>
-                {result.words_per_minute} PPM
+                {result.articulation_rate} PPM
               </Text>
             </View>
 
@@ -178,10 +178,30 @@ export default function Recording() {
               <Text style={styles.resultLabel}>Duração:</Text>
               <Text style={styles.resultValue}>{result.duration_seconds}s</Text>
             </View>
+            
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Tempo Ativo:</Text>
+              <Text style={styles.resultValue}>{result.active_speech_time}s</Text>
+            </View>
 
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Confiança:</Text>
-              <Text style={styles.resultValue}>{result.confidence}%</Text>
+              <Text style={styles.resultLabel}>Pausas:</Text>
+              <Text style={styles.resultValue}>{result.pause_count} ({result.silence_ratio}%)</Text>
+            </View>
+            
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Consistência:</Text>
+              <Text style={styles.resultValue}>{result.pacing_consistency}%</Text>
+            </View>
+            
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Inteligibilidade:</Text>
+              <Text style={[
+                styles.resultValue, 
+                { color: result.intelligibility_score > 80 ? '#10b981' : result.intelligibility_score > 60 ? '#f59e0b' : '#ef4444' }
+              ]}>
+                {result.intelligibility_score}%
+              </Text>
             </View>
 
             <View style={styles.feedbackContainer}>
