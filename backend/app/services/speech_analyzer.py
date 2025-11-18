@@ -3,6 +3,12 @@ import numpy as np
 import soundfile as sf
 from typing import Dict, Tuple
 import io
+from pydub import AudioSegment
+import tempfile
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SpeechAnalyzer:
@@ -50,10 +56,39 @@ class SpeechAnalyzer:
         Returns:
             Dict with analysis results
         """
-        # Load audio data
+        # Load audio data with format conversion support
         try:
+            # Try loading directly first
             audio_stream = io.BytesIO(audio_data)
-            y, sr = librosa.load(audio_stream, sr=None)
+            try:
+                y, sr = librosa.load(audio_stream, sr=None)
+            except Exception as direct_error:
+                # If direct load fails, try converting with pydub
+                logger.info(f"🔄 Converting audio format (WebM/other → WAV)...")
+                
+                # Create temporary file to store audio
+                with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as temp_input:
+                    temp_input.write(audio_data)
+                    temp_input_path = temp_input.name
+                
+                try:
+                    # Convert to WAV using pydub
+                    audio = AudioSegment.from_file(temp_input_path)
+                    
+                    # Export to temporary WAV file
+                    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_output:
+                        temp_output_path = temp_output.name
+                    
+                    audio.export(temp_output_path, format='wav')
+                    
+                    # Load with librosa
+                    y, sr = librosa.load(temp_output_path, sr=None)
+                    
+                    # Clean up temp files
+                    os.unlink(temp_output_path)
+                finally:
+                    os.unlink(temp_input_path)
+                    
         except Exception as e:
             raise ValueError(f"Error loading audio file: {str(e)}")
         

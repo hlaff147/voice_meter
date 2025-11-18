@@ -24,12 +24,43 @@ api.interceptors.request.use(
   }
 );
 
+// Request interceptor logging
+api.interceptors.request.use(
+  async (config) => {
+    console.log('🌐 API Request:', {
+      method: config.method?.toUpperCase(),
+      url: `${config.baseURL}${config.url}`,
+      headers: config.headers,
+      data: config.data instanceof FormData ? 'FormData' : config.data
+    });
+    return config;
+  },
+  (error) => {
+    console.error('❌ Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
 // Response interceptor for API calls
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('✅ API Response:', {
+      url: response.config.url,
+      status: response.status,
+      data: response.data
+    });
+    return response;
+  },
   async (error) => {
     // Handle errors globally
-    console.error('API Error:', error.response?.data || error.message);
+    console.error('❌ API Error:', {
+      url: error.config?.url,
+      method: error.config?.method?.toUpperCase(),
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message
+    });
     return Promise.reject(error);
   }
 );
@@ -46,30 +77,45 @@ export const apiService = {
   },
 
   analyzeSpeech: async (audioUri: string, category: string) => {
-    const formData = new FormData();
+    console.log('🎤 analyzeSpeech called:', { audioUri, category });
     
-    // Get file extension from URI
-    const uriParts = audioUri.split('.');
-    const fileType = uriParts[uriParts.length - 1];
-    
-    // Create file object for form data
-    const file: any = {
-      uri: audioUri,
-      type: `audio/${fileType}`,
-      name: `recording.${fileType}`,
-    };
-    
-    formData.append('audio_file', file);
-    formData.append('category', category);
-    
-    const response = await api.post('/api/v1/speech/analyze', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 30000, // 30 seconds for audio processing
-    });
-    
-    return response.data;
+    try {
+      // Fetch the audio file as a blob
+      console.log('📥 Fetching audio file from URI...');
+      const response = await fetch(audioUri);
+      const blob = await response.blob();
+      console.log('📦 Blob created:', { size: blob.size, type: blob.type });
+      
+      const formData = new FormData();
+      
+      // Create a proper File object from the blob
+      const file = new File([blob], 'recording.m4a', { type: blob.type || 'audio/m4a' });
+      console.log('📁 File object created:', { name: file.name, size: file.size, type: file.type });
+      
+      formData.append('audio_file', file);
+      formData.append('category', category);
+      
+      console.log('📤 Sending request to /api/v1/speech/analyze');
+      console.log('FormData entries:');
+      // @ts-ignore
+      for (let pair of formData.entries()) {
+        console.log('  ', pair[0], ':', pair[1]);
+      }
+      
+      const analysisResponse = await api.post('/api/v1/speech/analyze', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000, // 30 seconds for audio processing
+      });
+      
+      console.log('✅ Analysis response:', analysisResponse.data);
+      return analysisResponse.data;
+    } catch (error: any) {
+      console.error('❌ Error in analyzeSpeech:', error);
+      console.error('Error response:', error.response?.data);
+      throw error;
+    }
   },
 };
 

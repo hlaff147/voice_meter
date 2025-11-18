@@ -86,11 +86,24 @@ export default function Recording() {
   const analyzeAudio = async (uri: string) => {
     setAnalyzing(true);
     try {
+      console.log('📊 Starting audio analysis...');
+      console.log('📍 Audio URI:', uri);
+      console.log('🏷️ Category:', category);
+      
       const result = await apiService.analyzeSpeech(uri, category);
+      console.log('✅ Analysis successful:', result);
       setResult(result);
-    } catch (error) {
-      console.error('Error analyzing audio:', error);
-      Alert.alert('Erro', 'Não foi possível analisar o áudio. Tente novamente.');
+    } catch (error: any) {
+      console.error('❌ Error analyzing audio:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      Alert.alert(
+        'Erro', 
+        `Não foi possível analisar o áudio.\n\nDetalhes: ${error.response?.data?.detail || error.message}`
+      );
     } finally {
       setAnalyzing(false);
     }
