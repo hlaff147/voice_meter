@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Animated, Easing, Modal, useWindowDimensions, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Audio } from 'expo-av';
 import { apiService } from '../src/services/api';
 
@@ -15,6 +15,7 @@ const CATEGORY_INFO: Record<string, { title: string; ppm: string; color: string;
 export default function Recording() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { width } = useWindowDimensions();
   const category = params.category as string || 'other';
   const categoryInfo = CATEGORY_INFO[category] || CATEGORY_INFO.other;
 
@@ -24,19 +25,45 @@ export default function Recording() {
   const [result, setResult] = useState<any>(null);
   const [permissionResponse, requestPermission] = Audio.usePermissions();
 
+  // Animation values
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
-    // Configure audio mode
     Audio.setAudioModeAsync({
       allowsRecordingIOS: true,
       playsInSilentModeIOS: true,
     });
   }, []);
 
+  useEffect(() => {
+    let animation: Animated.CompositeAnimation;
+    if (isRecording) {
+      animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      animation.start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+    return () => animation?.stop();
+  }, [isRecording]);
+
   const startRecording = async () => {
     try {
-      // Request permission
       if (permissionResponse?.status !== 'granted') {
-        console.log('Requesting permission..');
         const permission = await requestPermission();
         if (!permission.granted) {
           Alert.alert('Permissão negada', 'Precisamos de permissão para usar o microfone');
@@ -49,14 +76,12 @@ export default function Recording() {
         playsInSilentModeIOS: true,
       });
 
-      console.log('Starting recording..');
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
       setRecording(recording);
       setIsRecording(true);
       setResult(null);
-      console.log('Recording started');
     } catch (err) {
       console.error('Failed to start recording', err);
       Alert.alert('Erro', 'Não foi possível iniciar a gravação');
@@ -66,7 +91,6 @@ export default function Recording() {
   const stopRecording = async () => {
     if (!recording) return;
 
-    console.log('Stopping recording..');
     setIsRecording(false);
     await recording.stopAndUnloadAsync();
     await Audio.setAudioModeAsync({
@@ -74,12 +98,9 @@ export default function Recording() {
     });
     
     const uri = recording.getURI();
-    console.log('Recording stopped and stored at', uri);
-    
     if (uri) {
       await analyzeAudio(uri);
     }
-    
     setRecording(null);
   };
 
@@ -88,9 +109,11 @@ export default function Recording() {
     try {
       const result = await apiService.analyzeSpeech(uri, category);
       setResult(result);
-    } catch (error) {
-      console.error('Error analyzing audio:', error);
-      Alert.alert('Erro', 'Não foi possível analisar o áudio. Tente novamente.');
+    } catch (error: any) {
+      Alert.alert(
+        'Erro', 
+        `Não foi possível analisar o áudio.\n\nDetalhes: ${error.response?.data?.detail || error.message}`
+      );
     } finally {
       setAnalyzing(false);
     }
@@ -108,82 +131,116 @@ export default function Recording() {
     <View style={styles.container}>
       <StatusBar style="light" />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>← Voltar</Text>
-        </TouchableOpacity>
-      </View>
+      <View style={styles.contentContainer}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Text style={styles.backText}>← Voltar</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Category Info */}
-      <View style={styles.categoryContainer}>
-        <Text style={styles.icon}>{categoryInfo.icon}</Text>
-        <Text style={styles.categoryTitle}>{categoryInfo.title}</Text>
-        <Text style={styles.idealSpeed}>Velocidade ideal: {categoryInfo.ppm}</Text>
-        <Text style={styles.instruction}>
-          {isRecording ? 'Gravando... Toque novamente para parar' : 'Toque no botão para começar a gravar'}
-        </Text>
-      </View>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Category Info */}
+          <View style={styles.categoryContainer}>
+            <Text style={styles.icon}>{categoryInfo.icon}</Text>
+            <Text style={styles.categoryTitle}>{categoryInfo.title}</Text>
+            <Text style={styles.idealSpeed}>Velocidade ideal: {categoryInfo.ppm}</Text>
+            <Text style={styles.instruction}>
+              {isRecording ? 'Gravando... Toque novamente para parar' : 'Toque no botão para começar a gravar'}
+            </Text>
+          </View>
 
-      {/* Recording Button */}
-      <View style={styles.recordingContainer}>
-        <TouchableOpacity
-          style={[
-            styles.recordButton,
-            { backgroundColor: isRecording ? '#ef4444' : categoryInfo.color },
-            analyzing && styles.recordButtonDisabled
-          ]}
-          onPress={handleRecordPress}
-          disabled={analyzing}
-          activeOpacity={0.8}
-        >
-          {analyzing ? (
-            <ActivityIndicator size="large" color="#fff" />
-          ) : (
-            <Text style={styles.micIcon}>{isRecording ? '⏸' : '🎙️'}</Text>
-          )}
-        </TouchableOpacity>
-        <Text style={styles.recordLabel}>
-          {analyzing ? 'Analisando...' : isRecording ? 'Toque para parar' : 'Toque para gravar'}
-        </Text>
-      </View>
-
-      {/* Results */}
-      {result && (
-        <View style={styles.resultContainer}>
-          <View style={[styles.resultCard, { borderColor: categoryInfo.color }]}>
-            <Text style={styles.resultTitle}>Resultado da Análise</Text>
-            
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Velocidade:</Text>
-              <Text style={[styles.resultValue, { color: categoryInfo.color }]}>
-                {result.words_per_minute} PPM
-              </Text>
-            </View>
-
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Duração:</Text>
-              <Text style={styles.resultValue}>{result.duration_seconds}s</Text>
-            </View>
-
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Confiança:</Text>
-              <Text style={styles.resultValue}>{result.confidence}%</Text>
-            </View>
-
-            <View style={styles.feedbackContainer}>
-              <Text style={styles.feedback}>{result.feedback}</Text>
-            </View>
-
-            <TouchableOpacity 
-              style={[styles.tryAgainButton, { backgroundColor: categoryInfo.color }]}
-              onPress={() => setResult(null)}
+          {/* Recording Button */}
+          <View style={styles.recordingContainer}>
+            <TouchableOpacity
+              onPress={handleRecordPress}
+              disabled={analyzing}
+              activeOpacity={0.8}
             >
-              <Text style={styles.tryAgainText}>Tentar Novamente</Text>
+              <Animated.View
+                style={[
+                  styles.recordButton,
+                  { 
+                    backgroundColor: isRecording ? '#ef4444' : categoryInfo.color,
+                    transform: [{ scale: pulseAnim }]
+                  },
+                  analyzing && styles.recordButtonDisabled
+                ]}
+              >
+                {analyzing ? (
+                  <ActivityIndicator size="large" color="#fff" />
+                ) : (
+                  <Text style={styles.micIcon}>{isRecording ? '⏸' : '🎙️'}</Text>
+                )}
+              </Animated.View>
             </TouchableOpacity>
+            <Text style={styles.recordLabel}>
+              {analyzing ? 'Analisando...' : isRecording ? 'Toque para parar' : 'Toque para gravar'}
+            </Text>
+          </View>
+
+          {/* Results */}
+          {result && (
+            <View style={styles.resultContainer}>
+              <View style={[styles.resultCard, { borderColor: categoryInfo.color }]}>
+                <Text style={styles.resultTitle}>Resultado da Análise</Text>
+                
+                <View style={styles.resultGrid}>
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>Velocidade (AR)</Text>
+                    <Text style={[styles.resultValue, { color: categoryInfo.color }]}>
+                      {result.articulation_rate} PPM
+                    </Text>
+                  </View>
+
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>Duração</Text>
+                    <Text style={styles.resultValue}>{result.duration_seconds}s</Text>
+                  </View>
+                  
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>Pausas</Text>
+                    <Text style={styles.resultValue}>{result.pause_count} ({result.silence_ratio}%)</Text>
+                  </View>
+                  
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>Inteligibilidade</Text>
+                    <Text style={[
+                      styles.resultValue, 
+                      { color: result.intelligibility_score > 80 ? '#10b981' : result.intelligibility_score > 60 ? '#f59e0b' : '#ef4444' }
+                    ]}>
+                      {result.intelligibility_score}%
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.feedbackContainer}>
+                  <Text style={styles.feedbackTitle}>Feedback</Text>
+                  <Text style={styles.feedback}>{result.feedback}</Text>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.tryAgainButton, { backgroundColor: categoryInfo.color }]}
+                  onPress={() => setResult(null)}
+                >
+                  <Text style={styles.tryAgainText}>Tentar Novamente</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+
+      {/* Loading Overlay */}
+      <Modal transparent visible={analyzing} animationType="fade">
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={categoryInfo.color} />
+            <Text style={styles.loadingText}>Analisando seu áudio...</Text>
+            <Text style={styles.loadingSubText}>Isso pode levar alguns segundos</Text>
           </View>
         </View>
-      )}
+      </Modal>
     </View>
   );
 }
@@ -192,6 +249,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
+    alignItems: 'center',
+  },
+  contentContainer: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 800, // Max width for desktop
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   header: {
     paddingTop: 60,
@@ -200,6 +266,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
+    padding: 8,
   },
   backText: {
     color: '#3b82f6',
@@ -220,6 +287,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 8,
+    textAlign: 'center',
   },
   idealSpeed: {
     fontSize: 18,
@@ -233,15 +301,14 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
   recordingContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 60,
+    paddingVertical: 40,
   },
   recordButton: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -254,7 +321,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   micIcon: {
-    fontSize: 64,
+    fontSize: 48,
   },
   recordLabel: {
     marginTop: 24,
@@ -263,12 +330,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   resultContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    marginTop: 20,
   },
   resultCard: {
     backgroundColor: '#1a1a1a',
@@ -283,34 +346,48 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  resultRow: {
+  resultGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 20,
+  },
+  resultItem: {
+    flex: 1,
+    minWidth: '40%',
+    backgroundColor: '#262626',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
   },
   resultLabel: {
-    fontSize: 16,
+    fontSize: 12,
     color: '#9ca3af',
+    marginBottom: 4,
   },
   resultValue: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#fff',
     fontWeight: '600',
   },
   feedbackContainer: {
-    marginTop: 16,
+    marginTop: 8,
     padding: 16,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#262626',
     borderRadius: 12,
+  },
+  feedbackTitle: {
+    color: '#fff',
+    fontWeight: 'bold',
+    marginBottom: 8,
   },
   feedback: {
     fontSize: 14,
-    color: '#fff',
+    color: '#d1d5db',
     lineHeight: 20,
-    textAlign: 'center',
   },
   tryAgainButton: {
-    marginTop: 16,
+    marginTop: 24,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -319,5 +396,31 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingCard: {
+    backgroundColor: '#1a1a1a',
+    padding: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    width: '80%',
+    maxWidth: 300,
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  loadingSubText: {
+    color: '#9ca3af',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
