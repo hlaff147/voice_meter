@@ -76,8 +76,8 @@ export const apiService = {
     return response.data;
   },
 
-  analyzeSpeech: async (audioUri: string, category: string) => {
-    console.log('🎤 analyzeSpeech called:', { audioUri, category });
+  analyzeSpeech: async (audioUri: string, category: string, fileInfo?: { name: string, type: string }) => {
+    console.log('🎤 analyzeSpeech called:', { audioUri, category, fileInfo });
     
     try {
       // Fetch the audio file as a blob
@@ -89,7 +89,10 @@ export const apiService = {
       const formData = new FormData();
       
       // Create a proper File object from the blob
-      const file = new File([blob], 'recording.m4a', { type: blob.type || 'audio/m4a' });
+      const fileName = fileInfo?.name || 'recording.m4a';
+      const fileType = fileInfo?.type || blob.type || 'audio/m4a';
+      
+      const file = new File([blob], fileName, { type: fileType });
       console.log('📁 File object created:', { name: file.name, size: file.size, type: file.type });
       
       formData.append('audio_file', file);

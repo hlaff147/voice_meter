@@ -221,10 +221,16 @@ async def analyze_speech(
             db.commit()
             db.refresh(db_recording)
             logger.info(f"💾 Saved recording to database with ID: {db_recording.id}, Score: {overall_score}")
+            
+            # Add recording_id and overall_score to response
+            result['recording_id'] = db_recording.id
+            result['overall_score'] = overall_score
         except Exception as db_e:
             logger.error(f"❌ Error saving to database: {str(db_e)}")
             db.rollback()
             # Don't fail the request if saving fails, just log it
+            result['recording_id'] = None
+            result['overall_score'] = overall_score
         
         return result
     except ValueError as e:

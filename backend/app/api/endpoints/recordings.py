@@ -71,29 +71,59 @@ async def get_recording_detail(
     if not recording:
         raise HTTPException(status_code=404, detail="Recording not found")
     
-    # Parse JSON fields
-    result = RecordingDetail.from_orm(recording)
-    
-    # Parse volume data
+    # Parse JSON fields before creating the model
+    volume_data = None
     if recording.volume_data_json:
         try:
-            result.volume_data = json.loads(recording.volume_data_json)
+            volume_data = json.loads(recording.volume_data_json)
         except:
-            result.volume_data = None
+            volume_data = None
     
-    # Parse recommendations
+    recommendations = None
     if recording.recommendations:
         try:
-            result.recommendations = json.loads(recording.recommendations)
+            recommendations = json.loads(recording.recommendations)
         except:
-            result.recommendations = []
+            recommendations = []
     
-    # Parse patterns
+    patterns_identified = None
     if recording.patterns_identified:
         try:
-            result.patterns_identified = json.loads(recording.patterns_identified)
+            patterns_identified = json.loads(recording.patterns_identified)
         except:
-            result.patterns_identified = []
+            patterns_identified = []
+    
+    # Build the result dict manually to avoid ORM parsing issues with JSON fields
+    result = RecordingDetail(
+        id=recording.id,
+        created_at=recording.created_at,
+        title=recording.title,
+        category=recording.category,
+        duration_seconds=recording.duration_seconds,
+        overall_score=recording.overall_score,
+        words_per_minute=recording.words_per_minute,
+        speech_rate=recording.speech_rate,
+        articulation_rate=recording.articulation_rate,
+        ideal_min_ppm=recording.ideal_min_ppm,
+        ideal_max_ppm=recording.ideal_max_ppm,
+        is_within_range=recording.is_within_range,
+        active_speech_time=recording.active_speech_time,
+        silence_ratio=recording.silence_ratio,
+        pause_count=recording.pause_count,
+        avg_pause_duration=recording.avg_pause_duration,
+        pacing_consistency=recording.pacing_consistency,
+        local_variation_detected=recording.local_variation_detected,
+        intelligibility_score=recording.intelligibility_score,
+        feedback=recording.feedback,
+        confidence=recording.confidence,
+        volume_min_db=recording.volume_min_db,
+        volume_max_db=recording.volume_max_db,
+        volume_avg_db=recording.volume_avg_db,
+        volume_data=volume_data,
+        recommendations=recommendations,
+        patterns_identified=patterns_identified,
+        notes=recording.notes,
+    )
     
     return result
 

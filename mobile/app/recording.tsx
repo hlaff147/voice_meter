@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { Audio } from 'expo-av';
+import * as DocumentPicker from 'expo-document-picker';
 import { apiService } from '../src/services/api';
 
 const CATEGORY_INFO: Record<string, { title: string; ppm: string; color: string; icon: string }> = {
@@ -104,10 +105,34 @@ export default function Recording() {
     setRecording(null);
   };
 
-  const analyzeAudio = async (uri: string) => {
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['audio/*', 'video/mp4'], // Allow audio and mp4 video (often used for audio)
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      if (asset) {
+        await analyzeAudio(asset.uri, {
+          name: asset.name,
+          type: asset.mimeType || 'audio/mpeg', // Default to audio/mpeg if unknown
+        });
+      }
+    } catch (err) {
+      console.error('Failed to pick document', err);
+      Alert.alert('Erro', 'Não foi possível selecionar o arquivo');
+    }
+  };
+
+  const analyzeAudio = async (uri: string, fileInfo?: { name: string, type: string }) => {
     setAnalyzing(true);
     try {
-      const result = await apiService.analyzeSpeech(uri, category);
+      const result = await apiService.analyzeSpeech(uri, category, fileInfo);
       setResult(result);
     } catch (error: any) {
       Alert.alert(
@@ -179,6 +204,19 @@ export default function Recording() {
             </Text>
           </View>
 
+          {/* Upload Button */}
+          {!isRecording && !analyzing && !result && (
+            <View style={styles.uploadContainer}>
+              <TouchableOpacity 
+                style={styles.uploadButton} 
+                onPress={pickDocument}
+              >
+                <Text style={styles.uploadButtonText}>📂 Carregar Arquivo de Áudio</Text>
+              </TouchableOpacity>
+              <Text style={styles.uploadHint}>Suporta MP3, WAV, M4A, MP4</Text>
+            </View>
+          )}
+
           {/* Results */}
           {result && (
             <View style={styles.resultContainer}>
@@ -218,6 +256,15 @@ export default function Recording() {
                   <Text style={styles.feedbackTitle}>Feedback</Text>
                   <Text style={styles.feedback}>{result.feedback}</Text>
                 </View>
+
+                {result.recording_id && (
+                  <TouchableOpacity 
+                    style={[styles.detailButton, { backgroundColor: '#3b82f6' }]}
+                    onPress={() => router.push(`/recording-detail?id=${result.recording_id}`)}
+                  >
+                    <Text style={styles.detailButtonText}>📊 Ver Detalhes Completos</Text>
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity 
                   style={[styles.tryAgainButton, { backgroundColor: categoryInfo.color }]}
@@ -329,6 +376,28 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontWeight: '600',
   },
+  uploadContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  uploadButton: {
+    backgroundColor: '#262626',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#404040',
+  },
+  uploadButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  uploadHint: {
+    color: '#6b7280',
+    fontSize: 12,
+    marginTop: 8,
+  },
   resultContainer: {
     paddingHorizontal: 20,
     marginTop: 20,
@@ -393,6 +462,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tryAgainText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  detailButton: {
+    marginTop: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  detailButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

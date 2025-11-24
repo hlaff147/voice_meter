@@ -13,6 +13,10 @@ class SpeechCategory(BaseModel):
 
 class SpeechAnalysisResult(BaseModel):
     """Result of advanced speech analysis based on research"""
+    # Recording identification
+    recording_id: Optional[int] = None  # ID of the saved recording
+    overall_score: Optional[int] = None  # 0-100 score
+    
     category: str
     
     # Primary metrics (Articulation Rate)
