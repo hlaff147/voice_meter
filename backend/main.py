@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.api import api_router
-from app.db.base import engine, Base
-from app.models import speech  # Import models to register them
+from app.db.base import engine, Base, SessionLocal
+from app.models import Recording, UserStatistics  # Import models to register them
+from app.db.init_db import seed_mock_data
 import logging
 
 # Configure logging
@@ -48,11 +49,22 @@ async def startup_event():
     # Create tables
     Base.metadata.create_all(bind=engine)
     
+    # Seed mock data if database is empty
+    db = SessionLocal()
+    try:
+        seed_mock_data(db)
+    except Exception as e:
+        logger.warning(f"Mock data seeding skipped or failed: {e}")
+    finally:
+        db.close()
+    
     logger.info(f"🚀 Voice Meter API started!")
     logger.info(f"📍 API Base URL: {settings.API_PREFIX}")
     logger.info(f"📍 Health: /health")
     logger.info(f"📍 Speech Categories: {settings.API_PREFIX}/v1/speech/categories")
     logger.info(f"📍 Speech Analyze: {settings.API_PREFIX}/v1/speech/analyze")
+    logger.info(f"📍 Recordings List: {settings.API_PREFIX}/v1/recordings/recordings")
+    logger.info(f"📍 User Statistics: {settings.API_PREFIX}/v1/recordings/statistics")
     logger.info(f"📍 Docs: {settings.API_PREFIX}/openapi.json")
 
 

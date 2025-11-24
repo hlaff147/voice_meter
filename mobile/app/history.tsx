@@ -2,7 +2,23 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { apiService } from '../src/services/api';
+import api from '../src/services/api';
+
+interface Recording {
+  id: number;
+  created_at: string;
+  title: string | null;
+  category: string;
+  duration_seconds: number;
+  overall_score: number;
+  words_per_minute: number;
+}
+
+const FILTER_OPTIONS = [
+  { id: 'all', label: 'Todos' },
+  { id: 'week', label: 'Esta Semana' },
+  { id: 'month', label: 'Este Mês' }
+];
 
 const CATEGORY_COLORS: Record<string, string> = {
   presentation: '#10b981',
@@ -21,21 +37,23 @@ const CATEGORY_NAMES: Record<string, string> = {
 export default function History() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const [history, setHistory] = useState<any[]>([]);
+  const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState('all');
 
   const isDesktop = width > 768;
 
   useEffect(() => {
     loadHistory();
-  }, []);
+  }, [selectedFilter]);
 
   const loadHistory = async () => {
     try {
       setLoading(true);
-      const data = await apiService.getHistory();
-      setHistory(data);
+      const response = await api.get(`/api/v1/recordings/recordings?period=${selectedFilter}`);
+      setRecordings(response.data);
+      setError(null);
     } catch (err) {
       console.error('Failed to load history', err);
       setError('Não foi possível carregar o histórico.');
@@ -46,20 +64,40 @@ export default function History() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return `Hoje, ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    } else if (diffDays === 1) {
+      return `Ontem, ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    } else if (diffDays < 7) {
+      return `${diffDays} dias atrás`;
+    } else {
+      return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+    }
   };
 
-  const renderItem = ({ item }: { item: any }) => {
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}min ${secs}s`;
+  };
+
+  const handleRecordingPress = (recordingId: number) => {
+    router.push(`/recording-detail?id=${recordingId}`);
+  };
+
+  const renderItem = ({ item }: { item: Recording }) => {
     const color = CATEGORY_COLORS[item.category] || CATEGORY_COLORS.other;
     
     return (
-      <View style={[styles.card, { borderColor: color }]}>
+      <TouchableOpacity
+        style={[styles.card, { borderColor: color }]}
+        onPress={() => handleRecordingPress(item.id)}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeader}>
           <View style={[styles.badge, { backgroundColor: color }]}>
             <Text style={styles.badgeText}>{CATEGORY_NAMES[item.category] || item.category}</Text>
@@ -67,33 +105,27 @@ export default function History() {
           <Text style={styles.date}>{formatDate(item.created_at)}</Text>
         </View>
 
-        <View style={styles.metricsGrid}>
+        {item.title && (
+          <Text style={styles.recordingTitle}>{item.title}</Text>
+        )}
+
+        <View style={styles.metricsRow}>
           <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>Velocidade (AR)</Text>
-            <Text style={[styles.metricValue, { color }]}>{item.articulation_rate.toFixed(1)} PPM</Text>
+            <Text style={styles.metricLabel}>Pontuação</Text>
+            <Text style={[styles.metricValue, { color }]}>{item.overall_score}</Text>
           </View>
           
           <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>Inteligibilidade</Text>
-            <Text style={[
-              styles.metricValue, 
-              { color: item.intelligibility_score > 80 ? '#10b981' : item.intelligibility_score > 60 ? '#f59e0b' : '#ef4444' }
-            ]}>
-              {item.intelligibility_score.toFixed(0)}%
-            </Text>
+            <Text style={styles.metricLabel}>Velocidade</Text>
+            <Text style={styles.metricValue}>{Math.round(item.words_per_minute)} PPM</Text>
           </View>
 
           <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>Pausas</Text>
-            <Text style={styles.metricValue}>{item.pause_count}</Text>
-          </View>
-          
-          <View style={styles.metricItem}>
             <Text style={styles.metricLabel}>Duração</Text>
-            <Text style={styles.metricValue}>{item.duration_seconds.toFixed(1)}s</Text>
+            <Text style={styles.metricValue}>{formatDuration(item.duration_seconds)}</Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -109,6 +141,29 @@ export default function History() {
           <Text style={styles.title}>Histórico</Text>
         </View>
 
+        {/* Filters */}
+        <View style={styles.filtersContainer}>
+          {FILTER_OPTIONS.map((filter) => (
+            <TouchableOpacity
+              key={filter.id}
+              style={[
+                styles.filterButton,
+                selectedFilter === filter.id && styles.filterButtonActive
+              ]}
+              onPress={() => setSelectedFilter(filter.id)}
+            >
+              <Text
+                style={[
+                  styles.filterButtonText,
+                  selectedFilter === filter.id && styles.filterButtonTextActive
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {loading ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color="#3b82f6" />
@@ -122,19 +177,34 @@ export default function History() {
           </View>
         ) : (
           <FlatList
-            data={history}
+            data={recordings}
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>Nenhuma gravação encontrada.</Text>
+                <Text style={styles.emptyIcon}>📝</Text>
+                <Text style={styles.emptyText}>Nenhuma gravação encontrada</Text>
+                <Text style={styles.emptySubtext}>
+                  Faça sua primeira gravação para ver o histórico
+                </Text>
               </View>
             }
             numColumns={isDesktop ? 2 : 1}
-            key={isDesktop ? 'desktop' : 'mobile'} // Force re-render on layout change
+            key={isDesktop ? 'desktop' : 'mobile'}
             columnWrapperStyle={isDesktop ? styles.columnWrapper : undefined}
+            ListFooterComponent={
+              recordings.length > 0 ? (
+                <TouchableOpacity
+                  style={styles.statsButton}
+                  onPress={() => router.push('/statistics')}
+                >
+                  <Text style={styles.statsButtonIcon}>📊</Text>
+                  <Text style={styles.statsButtonText}>Ver estatísticas completas</Text>
+                </TouchableOpacity>
+              ) : null
+            }
           />
         )}
       </View>
@@ -173,6 +243,32 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
+  filtersContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#333',
+    backgroundColor: '#1a1a1a',
+  },
+  filterButtonActive: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  filterButtonText: {
+    color: '#9ca3af',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterButtonTextActive: {
+    color: '#fff',
+  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -197,7 +293,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   badge: {
     paddingHorizontal: 12,
@@ -213,19 +309,21 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontSize: 12,
   },
-  metricsGrid: {
+  recordingTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  metricsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
   },
   metricItem: {
-    width: '48%',
-    backgroundColor: '#262626',
-    padding: 10,
-    borderRadius: 8,
+    alignItems: 'center',
   },
   metricLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#9ca3af',
     marginBottom: 4,
   },
@@ -253,8 +351,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 40,
   },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
   emptyText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptySubtext: {
     color: '#6b7280',
-    fontSize: 16,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  statsButton: {
+    backgroundColor: '#262626',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#3b82f6',
+    borderStyle: 'dashed',
+    padding: 24,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  statsButtonIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  statsButtonText: {
+    color: '#3b82f6',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

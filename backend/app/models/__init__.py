@@ -1,1 +1,3 @@
-# SQLAlchemy models will go here
+from app.models.recording import Recording, UserStatistics
+
+__all__ = ["Recording", "UserStatistics"]

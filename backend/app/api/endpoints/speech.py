@@ -5,7 +5,10 @@ from app.services.speech_analyzer import SpeechAnalyzer
 from app.schemas.speech import SpeechAnalysisResult, SpeechHistoryItem
 from app.db.base import get_db
 from app.models.speech import SpeechHistory
+from app.models.recording import Recording
 import logging
+import json
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -116,30 +119,111 @@ async def analyze_speech(
         result = speech_analyzer.analyze_audio_file(audio_data, category)
         logger.info(f"✅ Analysis complete - PPM: {result['words_per_minute']:.1f}")
         
-        # Save to database
+        # Calculate overall score (0-100) based on multiple factors
+        score = 50  # Base score
+        
+        # Score for being in ideal range (+/- 30 points)
+        if result['is_within_range']:
+            score += 30
+        else:
+            # Partial credit based on how close
+            deviation = min(
+                abs(result['articulation_rate'] - result['ideal_min_ppm']),
+                abs(result['articulation_rate'] - result['ideal_max_ppm'])
+            )
+            score += max(0, 30 - (deviation / 2))
+        
+        # Score for intelligibility (+/- 20 points)
+        score += (result['intelligibility_score'] / 100) * 20
+        
+        # Score for pacing consistency (+/- 15 points)
+        score += result['pacing_consistency'] * 15
+        
+        # Score for pause management (+/- 10 points)
+        if result['pause_count'] > 0:
+            ideal_pause_duration = 0.5  # 500ms is ideal
+            pause_score = max(0, 10 - abs(result['avg_pause_duration'] - ideal_pause_duration) * 10)
+            score += pause_score
+        
+        # Score for speech efficiency (+/- 5 points)
+        speech_efficiency = result['active_speech_time'] / result['duration_seconds'] if result['duration_seconds'] > 0 else 0
+        if 0.7 <= speech_efficiency <= 0.9:  # 70-90% is ideal
+            score += 5
+        
+        overall_score = int(max(0, min(100, score)))
+        
+        # Generate mock volume data for visualization
+        num_points = min(int(result['duration_seconds']), 60)  # Max 60 points
+        volume_data = [round(random.uniform(50, 85), 1) for _ in range(num_points)]
+        volume_min = min(volume_data)
+        volume_max = max(volume_data)
+        volume_avg = sum(volume_data) / len(volume_data)
+        
+        # Generate recommendations based on analysis
+        recommendations = []
+        if not result['is_within_range']:
+            if result['articulation_rate'] < result['ideal_min_ppm']:
+                recommendations.append(f"Tente aumentar sua velocidade de fala para {result['ideal_min_ppm']}-{result['ideal_max_ppm']} PPM")
+            else:
+                recommendations.append(f"Tente reduzir sua velocidade de fala para {result['ideal_min_ppm']}-{result['ideal_max_ppm']} PPM")
+        
+        if result['intelligibility_score'] < 80:
+            recommendations.append("Articule as palavras com mais clareza para melhorar a inteligibilidade")
+        
+        if result['pacing_consistency'] < 0.7:
+            recommendations.append("Mantenha um ritmo mais consistente durante a fala")
+        
+        if result['silence_ratio'] > 30:
+            recommendations.append("Reduza as pausas longas para manter o engajamento do público")
+        elif result['silence_ratio'] < 10:
+            recommendations.append("Adicione pausas estratégicas para dar tempo ao público de processar informações")
+        
+        # Identify patterns
+        patterns = []
+        if result['local_variation_detected']:
+            patterns.append("Variação local detectada - o ritmo muda em diferentes partes da fala")
+        
+        if result['pause_count'] > result['duration_seconds'] / 5:
+            patterns.append("Alto número de pausas - pode indicar hesitação ou reflexão")
+        
+        if speech_efficiency > 0.9:
+            patterns.append("Fala muito contínua - poucas pausas para respirar")
+        
+        # Save to new Recording table
         try:
-            db_item = SpeechHistory(
+            db_recording = Recording(
                 category=category,
+                duration_seconds=result['duration_seconds'],
                 words_per_minute=result['words_per_minute'],
                 speech_rate=result['speech_rate'],
                 articulation_rate=result['articulation_rate'],
-                duration_seconds=result['duration_seconds'],
+                ideal_min_ppm=result['ideal_min_ppm'],
+                ideal_max_ppm=result['ideal_max_ppm'],
                 is_within_range=result['is_within_range'],
                 active_speech_time=result['active_speech_time'],
                 silence_ratio=result['silence_ratio'],
                 pause_count=result['pause_count'],
                 avg_pause_duration=result['avg_pause_duration'],
                 pacing_consistency=result['pacing_consistency'],
+                local_variation_detected=result['local_variation_detected'],
                 intelligibility_score=result['intelligibility_score'],
+                overall_score=overall_score,
                 feedback=result['feedback'],
-                confidence=result['confidence']
+                confidence=result['confidence'],
+                volume_min_db=volume_min,
+                volume_max_db=volume_max,
+                volume_avg_db=volume_avg,
+                volume_data_json=json.dumps(volume_data),
+                recommendations=json.dumps(recommendations) if recommendations else None,
+                patterns_identified=json.dumps(patterns) if patterns else None,
             )
-            db.add(db_item)
+            db.add(db_recording)
             db.commit()
-            db.refresh(db_item)
-            logger.info(f"💾 Saved analysis to history with ID: {db_item.id}")
+            db.refresh(db_recording)
+            logger.info(f"💾 Saved recording to database with ID: {db_recording.id}, Score: {overall_score}")
         except Exception as db_e:
             logger.error(f"❌ Error saving to database: {str(db_e)}")
+            db.rollback()
             # Don't fail the request if saving fails, just log it
         
         return result
