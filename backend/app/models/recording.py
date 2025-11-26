@@ -4,22 +4,39 @@ from app.db.base import Base
 
 
 class Recording(Base):
-    """Database model for speech recordings"""
+    """Database model for speech recordings - focused on Presentation mode"""
     __tablename__ = "recordings"
 
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     # Recording metadata
-    category = Column(String(50), nullable=False)  # presentation, pitch, conversation, other
+    category = Column(String(50), nullable=False, default="presentation")
     duration_seconds = Column(Float, nullable=False)
     
-    # Primary metrics (Articulation Rate)
+    # Text comparison fields
+    expected_text = Column(Text, nullable=True)  # User's intended speech text
+    transcribed_text = Column(Text, nullable=True)  # Whisper transcription result
+    
+    # Comparison metrics
+    similarity_ratio = Column(Float, nullable=True)  # 0-1 ratio
+    pronunciation_score = Column(Integer, nullable=True)  # 0-100 score
+    word_accuracy = Column(Float, nullable=True)  # 0-1 ratio
+    levenshtein_distance = Column(Integer, nullable=True)
+    expected_word_count = Column(Integer, nullable=True)
+    transcribed_word_count = Column(Integer, nullable=True)
+    
+    # Difference details (JSON)
+    missing_words_json = Column(Text, nullable=True)  # JSON array
+    extra_words_json = Column(Text, nullable=True)  # JSON array
+    mispronounced_words_json = Column(Text, nullable=True)  # JSON array
+    
+    # Primary metrics (Articulation Rate) - kept for backward compatibility
     words_per_minute = Column(Float, nullable=False)
     speech_rate = Column(Float, nullable=False)
     articulation_rate = Column(Float, nullable=False)
-    ideal_min_ppm = Column(Integer, nullable=False)
-    ideal_max_ppm = Column(Integer, nullable=False)
+    ideal_min_ppm = Column(Integer, nullable=False, default=140)
+    ideal_max_ppm = Column(Integer, nullable=False, default=160)
     is_within_range = Column(Boolean, nullable=False)
     
     # Advanced metrics

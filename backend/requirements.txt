@@ -19,3 +19,9 @@ soundfile==0.12.1
 numpy==1.24.3
 scipy==1.11.4
 pydub==0.25.1
+
+# Speech-to-text with Whisper
+openai-whisper==20231117
+
+# Text comparison
+python-Levenshtein==0.23.0

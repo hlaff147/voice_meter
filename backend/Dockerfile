@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies including audio libraries for librosa
+# Install system dependencies including audio libraries for librosa and Whisper
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libsndfile1 \
     libsndfile1-dev \
     ffmpeg \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching

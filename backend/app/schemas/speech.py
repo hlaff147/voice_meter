@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 
 
@@ -11,6 +11,29 @@ class SpeechCategory(BaseModel):
     description: str
 
 
+class MispronouncedWord(BaseModel):
+    """A mispronounced word with similarity info"""
+    expected: str
+    heard: str
+    similarity: float
+
+
+class TextComparisonResult(BaseModel):
+    """Result of text comparison between expected and transcribed"""
+    expected_text: str
+    transcribed_text: str
+    similarity_ratio: float
+    pronunciation_score: int  # 0-100
+    word_accuracy: float
+    levenshtein_distance: int
+    expected_word_count: int
+    transcribed_word_count: int
+    missing_words: List[str]
+    extra_words: List[str]
+    mispronounced_words: List[MispronouncedWord]
+    feedback: str
+
+
 class SpeechAnalysisResult(BaseModel):
     """Result of advanced speech analysis based on research"""
     # Recording identification
@@ -18,6 +41,17 @@ class SpeechAnalysisResult(BaseModel):
     overall_score: Optional[int] = None  # 0-100 score
     
     category: str
+    
+    # Text comparison (NEW - main feature)
+    expected_text: Optional[str] = None
+    transcribed_text: Optional[str] = None
+    pronunciation_score: Optional[int] = None  # 0-100 based on text comparison
+    similarity_ratio: Optional[float] = None
+    word_accuracy: Optional[float] = None
+    missing_words: Optional[List[str]] = None
+    extra_words: Optional[List[str]] = None
+    mispronounced_words: Optional[List[MispronouncedWord]] = None
+    comparison_feedback: Optional[str] = None
     
     # Primary metrics (Articulation Rate)
     words_per_minute: float  # AR - primary metric
@@ -44,7 +78,8 @@ class SpeechAnalysisResult(BaseModel):
 
 class SpeechAnalysisRequest(BaseModel):
     """Request for speech analysis"""
-    category: str  # "presentation", "pitch", "conversation", "other"
+    category: str = "presentation"  # Default to presentation
+    expected_text: Optional[str] = None  # The text user intends to say
 
 
 class SpeechHistoryItem(SpeechAnalysisResult):
@@ -71,6 +106,11 @@ class RecordingBase(BaseModel):
     ideal_max_ppm: Optional[int] = None
     is_within_range: Optional[bool] = None
     local_variation_detected: Optional[bool] = None
+    # Text comparison fields
+    expected_text: Optional[str] = None
+    transcribed_text: Optional[str] = None
+    pronunciation_score: Optional[int] = None
+    similarity_ratio: Optional[float] = None
     
     class Config:
         from_attributes = True
@@ -109,6 +149,13 @@ class RecordingDetail(RecordingBase):
     recommendations: Optional[List[str]] = None
     patterns_identified: Optional[List[str]] = None
     notes: Optional[str] = None
+    # Text comparison details
+    word_accuracy: Optional[float] = None
+    expected_word_count: Optional[int] = None
+    transcribed_word_count: Optional[int] = None
+    missing_words: Optional[List[str]] = None
+    extra_words: Optional[List[str]] = None
+    mispronounced_words: Optional[List[MispronouncedWord]] = None
 
 
 class UserStats(BaseModel):

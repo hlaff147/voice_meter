@@ -76,8 +76,8 @@ export const apiService = {
     return response.data;
   },
 
-  analyzeSpeech: async (audioUri: string, category: string, fileInfo?: { name: string, type: string }) => {
-    console.log('🎤 analyzeSpeech called:', { audioUri, category, fileInfo });
+  analyzeSpeech: async (audioUri: string, category: string, expectedText?: string, fileInfo?: { name: string, type: string }) => {
+    console.log('🎤 analyzeSpeech called:', { audioUri, category, expectedText: expectedText?.substring(0, 50), fileInfo });
     
     try {
       // Fetch the audio file as a blob
@@ -98,18 +98,29 @@ export const apiService = {
       formData.append('audio_file', file);
       formData.append('category', category);
       
+      // Add expected text if provided
+      if (expectedText && expectedText.trim()) {
+        formData.append('expected_text', expectedText.trim());
+        console.log('📝 Expected text added to form data');
+      }
+      
       console.log('📤 Sending request to /api/v1/speech/analyze');
       console.log('FormData entries:');
       // @ts-ignore
       for (let pair of formData.entries()) {
-        console.log('  ', pair[0], ':', pair[1]);
+        const value = pair[1];
+        if (typeof value === 'string') {
+          console.log('  ', pair[0], ':', value.substring(0, 50) + (value.length > 50 ? '...' : ''));
+        } else {
+          console.log('  ', pair[0], ':', pair[1]);
+        }
       }
       
       const analysisResponse = await api.post('/api/v1/speech/analyze', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        timeout: 30000, // 30 seconds for audio processing
+        timeout: 60000, // 60 seconds for audio processing with Whisper
       });
       
       console.log('✅ Analysis response:', analysisResponse.data);
