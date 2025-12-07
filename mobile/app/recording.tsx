@@ -408,6 +408,26 @@ export default function Recording() {
                   {(result.similarity_ratio * 100).toFixed(0)}% similaridade
                 </Text>
 
+                {/* Legenda de Cores */}
+                <View style={styles.legendContainer}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+                    <Text style={styles.legendText}>Correto</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
+                    <Text style={styles.legendText}>Não detectado</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#eab308' }]} />
+                    <Text style={styles.legendText}>Diferente</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
+                    <Text style={styles.legendText}>Extra</Text>
+                  </View>
+                </View>
+
                 <View style={styles.diffGrid}>
                   {/* Expected Text Column */}
                   <View style={styles.diffColumn}>
@@ -417,13 +437,19 @@ export default function Recording() {
                     <View style={styles.diffContent}>
                       <Text style={styles.diffText}>
                         {result.expected_text?.split(' ').map((word: string, idx: number) => {
-                          const transcribedWords = (result.transcribed_text || '').toLowerCase().split(' ');
-                          const isPresent = transcribedWords.includes(word.toLowerCase().replace(/[.,!?]/g, ''));
+                          const normalizedWord = word.toLowerCase().replace(/[.,!?]/g, '');
+                          const missingWords = (result.missing_words || []).map((w: string) => w.toLowerCase());
+                          const mispronounced = (result.mispronounced_words || []).map((m: any) => m.expected?.toLowerCase());
+                          
+                          const isMissing = missingWords.includes(normalizedWord);
+                          const isMispronounced = mispronounced.includes(normalizedWord);
+                          
+                          let wordStyle = styles.wordMatch;
+                          if (isMissing) wordStyle = styles.wordMissing;
+                          else if (isMispronounced) wordStyle = styles.wordMispronounced;
+                          
                           return (
-                            <Text
-                              key={idx}
-                              style={isPresent ? styles.wordMatch : styles.wordMissing}
-                            >
+                            <Text key={idx} style={wordStyle}>
                               {word}{' '}
                             </Text>
                           );
@@ -440,13 +466,19 @@ export default function Recording() {
                     <View style={styles.diffContent}>
                       <Text style={styles.diffText}>
                         {result.transcribed_text ? result.transcribed_text.split(' ').map((word: string, idx: number) => {
-                          const expectedWords = (result.expected_text || '').toLowerCase().split(' ').map((w: string) => w.replace(/[.,!?]/g, ''));
-                          const isExpected = expectedWords.includes(word.toLowerCase().replace(/[.,!?]/g, ''));
+                          const normalizedWord = word.toLowerCase().replace(/[.,!?]/g, '');
+                          const extraWords = (result.extra_words || []).map((w: string) => w.toLowerCase());
+                          const mispronounced = (result.mispronounced_words || []).map((m: any) => m.heard?.toLowerCase());
+                          
+                          const isExtra = extraWords.includes(normalizedWord);
+                          const isMispronounced = mispronounced.includes(normalizedWord);
+                          
+                          let wordStyle = styles.wordCorrect;
+                          if (isExtra) wordStyle = styles.wordExtra;
+                          else if (isMispronounced) wordStyle = styles.wordMispronounced;
+                          
                           return (
-                            <Text
-                              key={idx}
-                              style={isExpected ? styles.wordCorrect : styles.wordExtra}
-                            >
+                            <Text key={idx} style={wordStyle}>
                               {word}{' '}
                             </Text>
                           );
@@ -540,6 +572,16 @@ export default function Recording() {
                     ⚠️ Palavras não detectadas: {result.missing_words.slice(0, 5).join(', ')}
                     {result.missing_words.length > 5 ? ` (+${result.missing_words.length - 5} mais)` : ''}
                   </Text>
+                )}
+                {result.mispronounced_words?.length > 0 && (
+                  <View style={styles.mispronouncedContainer}>
+                    <Text style={styles.feedbackMispronounced}>🔄 Palavras com pronúncia diferente:</Text>
+                    {result.mispronounced_words.slice(0, 3).map((item: any, idx: number) => (
+                      <Text key={idx} style={styles.mispronouncedItem}>
+                        "{item.expected}" → "{item.heard}"
+                      </Text>
+                    ))}
+                  </View>
                 )}
               </View>
 
@@ -1002,6 +1044,34 @@ const styles = StyleSheet.create({
     color: '#f59e0b',
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
   },
+  wordMispronounced: {
+    color: '#eab308',
+    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+  },
+  // Legend styles
+  legendContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#374151',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendText: {
+    fontSize: 11,
+    color: '#9ca3af',
+  },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1116,9 +1186,24 @@ const styles = StyleSheet.create({
   },
   feedbackMissing: {
     fontSize: 12,
-    color: '#f59e0b',
+    color: '#ef4444',
     marginTop: 12,
     textAlign: 'center',
+  },
+  feedbackMispronounced: {
+    fontSize: 12,
+    color: '#eab308',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  mispronouncedContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  mispronouncedItem: {
+    fontSize: 11,
+    color: '#d1d5db',
+    marginTop: 4,
   },
   // Detail button styles
   detailButton: {

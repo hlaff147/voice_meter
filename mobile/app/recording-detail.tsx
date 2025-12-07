@@ -232,6 +232,26 @@ export default function RecordingDetail() {
               </Text>
             )}
 
+            {/* Legenda de Cores */}
+            <View style={styles.legendContainer}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+                <Text style={styles.legendText}>Correto</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
+                <Text style={styles.legendText}>Não detectado</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#eab308' }]} />
+                <Text style={styles.legendText}>Diferente</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
+                <Text style={styles.legendText}>Extra</Text>
+              </View>
+            </View>
+
             <View style={styles.diffGrid}>
               {/* Expected Text Column */}
               <View style={styles.diffColumn}>
@@ -241,13 +261,19 @@ export default function RecordingDetail() {
                 <View style={styles.diffContent}>
                   <Text style={styles.diffText}>
                     {recording.expected_text?.split(' ').map((word: string, idx: number) => {
-                      const transcribedWords = (recording.transcribed_text || '').toLowerCase().split(' ');
-                      const isPresent = transcribedWords.includes(word.toLowerCase().replace(/[.,!?]/g, ''));
+                      const normalizedWord = word.toLowerCase().replace(/[.,!?]/g, '');
+                      const missingWords = (recording.missing_words || []).map((w: string) => w.toLowerCase());
+                      const mispronounced = (recording.mispronounced_words || []).map((m: MispronouncedWord) => m.expected?.toLowerCase());
+                      
+                      const isMissing = missingWords.includes(normalizedWord);
+                      const isMispronounced = mispronounced.includes(normalizedWord);
+                      
+                      let wordStyle = styles.wordMatch;
+                      if (isMissing) wordStyle = styles.wordMissing;
+                      else if (isMispronounced) wordStyle = styles.wordMispronounced;
+                      
                       return (
-                        <Text
-                          key={idx}
-                          style={isPresent ? styles.wordMatch : styles.wordMissing}
-                        >
+                        <Text key={idx} style={wordStyle}>
                           {word}{' '}
                         </Text>
                       );
@@ -264,13 +290,19 @@ export default function RecordingDetail() {
                 <View style={styles.diffContent}>
                   <Text style={styles.diffText}>
                     {recording.transcribed_text ? recording.transcribed_text.split(' ').map((word: string, idx: number) => {
-                      const expectedWords = (recording.expected_text || '').toLowerCase().split(' ').map((w: string) => w.replace(/[.,!?]/g, ''));
-                      const isExpected = expectedWords.includes(word.toLowerCase().replace(/[.,!?]/g, ''));
+                      const normalizedWord = word.toLowerCase().replace(/[.,!?]/g, '');
+                      const extraWords = (recording.extra_words || []).map((w: string) => w.toLowerCase());
+                      const mispronounced = (recording.mispronounced_words || []).map((m: MispronouncedWord) => m.heard?.toLowerCase());
+                      
+                      const isExtra = extraWords.includes(normalizedWord);
+                      const isMispronounced = mispronounced.includes(normalizedWord);
+                      
+                      let wordStyle = styles.wordCorrect;
+                      if (isExtra) wordStyle = styles.wordExtra;
+                      else if (isMispronounced) wordStyle = styles.wordMispronounced;
+                      
                       return (
-                        <Text
-                          key={idx}
-                          style={isExpected ? styles.wordCorrect : styles.wordExtra}
-                        >
+                        <Text key={idx} style={wordStyle}>
                           {word}{' '}
                         </Text>
                       );
@@ -337,6 +369,98 @@ export default function RecordingDetail() {
             </View>
           </View>
         </View>
+
+        {/* Métricas Detalhadas de Análise */}
+        {recording.expected_text && (
+          <View style={styles.analysisCard}>
+            <Text style={styles.analysisCardTitle}>🔍 Análise Detalhada</Text>
+            
+            <View style={styles.analysisGrid}>
+              {/* Precisão por Palavra */}
+              <View style={styles.analysisItem}>
+                <Text style={styles.analysisValue}>
+                  {recording.word_accuracy !== null ? (recording.word_accuracy * 100).toFixed(0) : '-'}%
+                </Text>
+                <Text style={styles.analysisLabel}>Precisão por Palavra</Text>
+              </View>
+              
+              {/* Score de Pronúncia */}
+              <View style={styles.analysisItem}>
+                <Text style={styles.analysisValue}>
+                  {recording.pronunciation_score ?? '-'}
+                </Text>
+                <Text style={styles.analysisLabel}>Score de Pronúncia</Text>
+              </View>
+              
+              {/* Contagem de Palavras */}
+              <View style={styles.analysisItem}>
+                <Text style={styles.analysisValue}>
+                  {recording.transcribed_word_count ?? 0}/{recording.expected_word_count ?? 0}
+                </Text>
+                <Text style={styles.analysisLabel}>Palavras (Trans/Esp)</Text>
+              </View>
+              
+              {/* Palavras Não Detectadas */}
+              <View style={styles.analysisItem}>
+                <Text style={[styles.analysisValue, { color: (recording.missing_words?.length ?? 0) > 0 ? '#ef4444' : '#10b981' }]}>
+                  {recording.missing_words?.length ?? 0}
+                </Text>
+                <Text style={styles.analysisLabel}>Não Detectadas</Text>
+              </View>
+              
+              {/* Palavras Extras */}
+              <View style={styles.analysisItem}>
+                <Text style={[styles.analysisValue, { color: (recording.extra_words?.length ?? 0) > 0 ? '#f59e0b' : '#10b981' }]}>
+                  {recording.extra_words?.length ?? 0}
+                </Text>
+                <Text style={styles.analysisLabel}>Palavras Extras</Text>
+              </View>
+              
+              {/* Palavras Diferentes */}
+              <View style={styles.analysisItem}>
+                <Text style={[styles.analysisValue, { color: (recording.mispronounced_words?.length ?? 0) > 0 ? '#eab308' : '#10b981' }]}>
+                  {recording.mispronounced_words?.length ?? 0}
+                </Text>
+                <Text style={styles.analysisLabel}>Pronúncia Diferente</Text>
+              </View>
+            </View>
+
+            {/* Lista de palavras mal pronunciadas */}
+            {recording.mispronounced_words && recording.mispronounced_words.length > 0 && (
+              <View style={styles.mispronouncedSection}>
+                <Text style={styles.mispronouncedTitle}>🔄 Palavras com pronúncia diferente:</Text>
+                {recording.mispronounced_words.map((item: MispronouncedWord, idx: number) => (
+                  <View key={idx} style={styles.mispronouncedRow}>
+                    <Text style={styles.mispronouncedExpected}>"{item.expected}"</Text>
+                    <Text style={styles.mispronouncedArrow}>→</Text>
+                    <Text style={styles.mispronouncedHeard}>"{item.heard}"</Text>
+                    <Text style={styles.mispronouncedSimilarity}>({(item.similarity * 100).toFixed(0)}%)</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Lista de palavras não detectadas */}
+            {recording.missing_words && recording.missing_words.length > 0 && (
+              <View style={styles.missingSection}>
+                <Text style={styles.missingTitle}>⚠️ Palavras não detectadas:</Text>
+                <Text style={styles.missingWords}>
+                  {recording.missing_words.join(', ')}
+                </Text>
+              </View>
+            )}
+
+            {/* Lista de palavras extras */}
+            {recording.extra_words && recording.extra_words.length > 0 && (
+              <View style={styles.extraSection}>
+                <Text style={styles.extraTitle}>➕ Palavras extras detectadas:</Text>
+                <Text style={styles.extraWords}>
+                  {recording.extra_words.join(', ')}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Action Button */}
         <TouchableOpacity
@@ -471,6 +595,62 @@ const styles = StyleSheet.create({
   wordCountText: {
     fontSize: 12,
     color: '#6b7280',
+  },
+  // Metrics Card styles
+  metricsCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#262626',
+  },
+  metricsCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 16,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  metricItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  metricIdeal: {
+    fontSize: 10,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  // Audio card styles
+  audioCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#262626',
+  },
+  audioCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  volumeStatItem: {
+    alignItems: 'center',
+  },
+  volumeStatLabel: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginBottom: 2,
+  },
+  volumeStatValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
   // Issues styles
   issuesCard: {
@@ -731,6 +911,34 @@ const styles = StyleSheet.create({
     color: '#f59e0b',
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
   },
+  wordMispronounced: {
+    color: '#eab308',
+    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+  },
+  // Legend styles
+  legendContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#374151',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendText: {
+    fontSize: 11,
+    color: '#9ca3af',
+  },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -746,5 +954,112 @@ const styles = StyleSheet.create({
   statMissing: {
     fontSize: 13,
     color: '#ef4444',
+  },
+  // Analysis Card styles
+  analysisCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#262626',
+  },
+  analysisCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 16,
+  },
+  analysisGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  analysisItem: {
+    width: '30%',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  analysisValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#10b981',
+  },
+  analysisLabel: {
+    fontSize: 10,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  // Mispronounced section
+  mispronouncedSection: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#374151',
+  },
+  mispronouncedTitle: {
+    fontSize: 13,
+    color: '#eab308',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  mispronouncedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    gap: 6,
+  },
+  mispronouncedExpected: {
+    fontSize: 13,
+    color: '#ef4444',
+  },
+  mispronouncedArrow: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  mispronouncedHeard: {
+    fontSize: 13,
+    color: '#eab308',
+  },
+  mispronouncedSimilarity: {
+    fontSize: 11,
+    color: '#6b7280',
+  },
+  // Missing words section
+  missingSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#374151',
+  },
+  missingTitle: {
+    fontSize: 13,
+    color: '#ef4444',
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  missingWords: {
+    fontSize: 13,
+    color: '#d1d5db',
+    lineHeight: 20,
+  },
+  // Extra words section
+  extraSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#374151',
+  },
+  extraTitle: {
+    fontSize: 13,
+    color: '#f59e0b',
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  extraWords: {
+    fontSize: 13,
+    color: '#d1d5db',
+    lineHeight: 20,
   },
 });
