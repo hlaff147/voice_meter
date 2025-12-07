@@ -606,6 +606,95 @@ class SpeechAnalyzer:
         
         return " ".join(feedback_parts)
     
+    def calculate_volume_over_time(self, audio_data: bytes, num_points: int = 60) -> Dict:
+        """
+        Calculate real volume (RMS) over time for visualization
+        
+        Args:
+            audio_data: Audio file bytes
+            num_points: Number of data points to return (default 60 for 60 bars)
+            
+        Returns:
+            Dict with volume_data array and statistics
+        """
+        try:
+            # Load audio data with format conversion support
+            audio_stream = io.BytesIO(audio_data)
+            try:
+                y, sr = librosa.load(audio_stream, sr=None)
+            except Exception:
+                # Try converting with pydub
+                with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as temp_input:
+                    temp_input.write(audio_data)
+                    temp_input_path = temp_input.name
+                
+                try:
+                    audio = AudioSegment.from_file(temp_input_path)
+                    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_output:
+                        temp_output_path = temp_output.name
+                    audio.export(temp_output_path, format='wav')
+                    y, sr = librosa.load(temp_output_path, sr=None)
+                    os.unlink(temp_output_path)
+                finally:
+                    os.unlink(temp_input_path)
+            
+            duration = librosa.get_duration(y=y, sr=sr)
+            
+            # Calculate how many samples per point
+            samples_per_point = len(y) // num_points
+            if samples_per_point < 1:
+                samples_per_point = 1
+                num_points = len(y)
+            
+            # Calculate RMS for each segment
+            volume_data = []
+            for i in range(num_points):
+                start_idx = i * samples_per_point
+                end_idx = min(start_idx + samples_per_point, len(y))
+                segment = y[start_idx:end_idx]
+                
+                if len(segment) > 0:
+                    # Calculate RMS (Root Mean Square)
+                    rms = np.sqrt(np.mean(segment ** 2))
+                    # Convert to dB scale (with reference to prevent -inf)
+                    rms_db = librosa.amplitude_to_db(np.array([rms]), ref=np.max(np.abs(y)))[0]
+                    # Normalize to 0-100 scale for visualization
+                    # Typical dB range is -60 to 0
+                    normalized = max(0, min(100, (rms_db + 60) / 60 * 100))
+                    volume_data.append(round(normalized, 1))
+                else:
+                    volume_data.append(0)
+            
+            # Calculate statistics
+            if volume_data:
+                volume_min = min(volume_data)
+                volume_max = max(volume_data)
+                volume_avg = sum(volume_data) / len(volume_data)
+            else:
+                volume_min = volume_max = volume_avg = 0
+            
+            logger.info(f"📊 Volume calculated: {len(volume_data)} points, avg={volume_avg:.1f}, min={volume_min:.1f}, max={volume_max:.1f}")
+            
+            return {
+                'volume_data': volume_data,
+                'volume_min': round(volume_min, 1),
+                'volume_max': round(volume_max, 1),
+                'volume_avg': round(volume_avg, 1),
+                'duration': round(duration, 2),
+                'num_points': len(volume_data)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating volume: {str(e)}")
+            return {
+                'volume_data': [],
+                'volume_min': 0,
+                'volume_max': 0,
+                'volume_avg': 0,
+                'duration': 0,
+                'num_points': 0
+            }
+    
     def get_categories(self) -> Dict:
         """Return all available categories"""
         return self.CATEGORIES

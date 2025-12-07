@@ -1,8 +1,60 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Dimensions, useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect } from 'react';
 import api from '../src/services/api';
+
+// Função para renderizar gráfico de volume
+const renderVolumeChart = (volumeData: number[] | null, screenWidth: number) => {
+  if (!volumeData || volumeData.length === 0) {
+    return null;
+  }
+
+  const chartHeight = 100;
+  const chartWidth = screenWidth - 80;
+  const maxVolume = Math.max(...volumeData, 1);
+  const barWidth = Math.max(2, chartWidth / volumeData.length - 1);
+
+  return (
+    <View style={chartStyles.chartContainer}>
+      <View style={[chartStyles.chartBars, { height: chartHeight }]}>
+        {volumeData.map((volume, index) => {
+          const barHeight = Math.max(2, (volume / maxVolume) * chartHeight);
+          return (
+            <View
+              key={index}
+              style={[
+                chartStyles.chartBar,
+                {
+                  height: barHeight,
+                  width: barWidth,
+                  backgroundColor: volume > 70 ? '#10b981' : volume > 40 ? '#3b82f6' : '#6b7280'
+                }
+              ]}
+            />
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
+// Estilos do gráfico
+const chartStyles = StyleSheet.create({
+  chartContainer: {
+    width: '100%',
+    marginVertical: 12,
+  },
+  chartBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 1,
+  },
+  chartBar: {
+    borderRadius: 2,
+  },
+});
 
 interface MispronouncedWord {
   expected: string;
@@ -56,7 +108,8 @@ export default function RecordingDetail() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const recordingId = params.id as string;
-  
+  const { width } = useWindowDimensions();
+
   const [recording, setRecording] = useState<RecordingDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -169,175 +222,120 @@ export default function RecordingDetail() {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Score Card */}
-        <View style={[styles.scoreCard, { borderColor: getScoreColor(mainScore) }]}>
-          <Text style={styles.scoreLabel}>
-            {recording.pronunciation_score !== null ? 'PONTUAÇÃO DE PRONÚNCIA' : 'PONTUAÇÃO GERAL'}
-          </Text>
-          <Text style={[styles.scoreValue, { color: getScoreColor(mainScore) }]}>{mainScore}</Text>
-          {recording.similarity_ratio !== null && (
-            <Text style={styles.scoreSubtext}>
-              {(recording.similarity_ratio * 100).toFixed(1)}% de similaridade
-            </Text>
-          )}
-          <Text style={styles.scoreCategory}>Apresentação</Text>
-        </View>
-
-        {/* Text Comparison Section - NEW */}
+        {/* Git-diff Style Comparison */}
         {recording.expected_text && (
-          <View style={styles.comparisonCard}>
-            <Text style={styles.comparisonTitle}>📝 Comparação de Textos</Text>
-            
-            <View style={styles.textBox}>
-              <Text style={styles.textBoxLabel}>Texto Esperado:</Text>
-              <Text style={styles.textBoxContent}>{recording.expected_text}</Text>
+          <View style={styles.diffContainer}>
+            <Text style={styles.diffTitle}>📊 Comparação de Textos</Text>
+            {recording.similarity_ratio !== null && (
+              <Text style={styles.similarityBadge}>
+                {(recording.similarity_ratio * 100).toFixed(0)}% similaridade
+              </Text>
+            )}
+
+            <View style={styles.diffGrid}>
+              {/* Expected Text Column */}
+              <View style={styles.diffColumn}>
+                <View style={styles.diffHeaderExpected}>
+                  <Text style={styles.diffHeaderText}>📄 ESPERADO</Text>
+                </View>
+                <View style={styles.diffContent}>
+                  <Text style={styles.diffText}>
+                    {recording.expected_text?.split(' ').map((word: string, idx: number) => {
+                      const transcribedWords = (recording.transcribed_text || '').toLowerCase().split(' ');
+                      const isPresent = transcribedWords.includes(word.toLowerCase().replace(/[.,!?]/g, ''));
+                      return (
+                        <Text
+                          key={idx}
+                          style={isPresent ? styles.wordMatch : styles.wordMissing}
+                        >
+                          {word}{' '}
+                        </Text>
+                      );
+                    })}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Transcribed Text Column */}
+              <View style={styles.diffColumn}>
+                <View style={styles.diffHeaderTranscribed}>
+                  <Text style={styles.diffHeaderText}>🎤 TRANSCRITO</Text>
+                </View>
+                <View style={styles.diffContent}>
+                  <Text style={styles.diffText}>
+                    {recording.transcribed_text ? recording.transcribed_text.split(' ').map((word: string, idx: number) => {
+                      const expectedWords = (recording.expected_text || '').toLowerCase().split(' ').map((w: string) => w.replace(/[.,!?]/g, ''));
+                      const isExpected = expectedWords.includes(word.toLowerCase().replace(/[.,!?]/g, ''));
+                      return (
+                        <Text
+                          key={idx}
+                          style={isExpected ? styles.wordCorrect : styles.wordExtra}
+                        >
+                          {word}{' '}
+                        </Text>
+                      );
+                    }) : <Text style={styles.wordMissing}>Não foi possível transcrever</Text>}
+                  </Text>
+                </View>
+              </View>
             </View>
 
-            <View style={[styles.textBox, styles.textBoxTranscribed]}>
-              <Text style={styles.textBoxLabel}>O que você disse:</Text>
-              <Text style={styles.textBoxContent}>
-                {recording.transcribed_text || 'Não foi possível transcrever'}
+            {/* Simple Stats */}
+            <View style={styles.statsRow}>
+              <Text style={styles.statText}>
+                {recording.transcribed_word_count ?? 0} / {recording.expected_word_count ?? 0} palavras
               </Text>
-            </View>
-
-            {/* Word counts */}
-            <View style={styles.wordCountRow}>
-              <Text style={styles.wordCountText}>
-                Palavras: {recording.transcribed_word_count ?? '—'} / {recording.expected_word_count ?? '—'}
-              </Text>
-              {recording.word_accuracy !== null && (
-                <Text style={styles.wordCountText}>
-                  Precisão: {(recording.word_accuracy * 100).toFixed(0)}%
+              {recording.missing_words && recording.missing_words.length > 0 && (
+                <Text style={styles.statMissing}>
+                  {recording.missing_words.length} não detectadas
                 </Text>
               )}
             </View>
           </View>
         )}
 
-        {/* Issues Found - NEW */}
-        {((recording.missing_words && recording.missing_words.length > 0) || 
-          (recording.mispronounced_words && recording.mispronounced_words.length > 0)) && (
-          <View style={styles.issuesCard}>
-            <Text style={styles.issuesTitle}>⚠️ Pontos de Atenção</Text>
-            
-            {recording.missing_words && recording.missing_words.length > 0 && (
-              <View style={styles.issueSection}>
-                <Text style={styles.issueLabel}>Palavras não detectadas:</Text>
-                <Text style={styles.issueWords}>
-                  {recording.missing_words.slice(0, 8).join(', ')}
-                  {recording.missing_words.length > 8 && ` (+${recording.missing_words.length - 8})`}
-                </Text>
-              </View>
-            )}
-
-            {recording.mispronounced_words && recording.mispronounced_words.length > 0 && (
-              <View style={styles.issueSection}>
-                <Text style={styles.issueLabel}>Pronúncia diferente:</Text>
-                {recording.mispronounced_words.slice(0, 5).map((mp, idx) => (
-                  <Text key={idx} style={styles.issueWords}>
-                    "{mp.expected}" → "{mp.heard}" ({(mp.similarity * 100).toFixed(0)}%)
-                  </Text>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Metrics Grid */}
-        <View style={styles.metricsGrid}>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Velocidade</Text>
-            <Text style={styles.metricValue}>
-              {Math.round(recording.words_per_minute)} PPM
-            </Text>
-            <Text style={[styles.metricStatus, { color: wpmStatus.color }]}>
-              {wpmStatus.icon} {wpmStatus.text}
-            </Text>
-          </View>
-
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Clareza</Text>
-            <Text style={styles.metricValue}>
-              {Math.round(recording.intelligibility_score)}%
-            </Text>
-            <Text style={[styles.metricStatus, { color: recording.intelligibility_score >= 80 ? '#10b981' : '#f59e0b' }]}>
-              {recording.intelligibility_score >= 80 ? '✓ Ótimo' : '⚠️ Melhorar'}
-            </Text>
-          </View>
-
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Pausas</Text>
-            <Text style={styles.metricValue}>{recording.pause_count}</Text>
-            <Text style={[styles.metricStatus, { color: '#3b82f6' }]}>
-              {recording.avg_pause_duration.toFixed(1)}s méd.
-            </Text>
-          </View>
-
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Duração</Text>
-            <Text style={styles.metricValue}>
-              {recording.duration_seconds.toFixed(1)}s
-            </Text>
-            <Text style={styles.metricStatus}>
-              {recording.active_speech_time.toFixed(1)}s fala
-            </Text>
-          </View>
-        </View>
-
-        {/* Volume Chart */}
-        {recording.volume_data && (
-          <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>VOLUME AO LONGO DO TEMPO</Text>
-            {renderVolumeChart()}
+        {/* Volume Chart Card */}
+        {recording.volume_data && recording.volume_data.length > 0 && (
+          <View style={styles.audioCard}>
+            <Text style={styles.audioCardTitle}>🔊 Volume do Áudio</Text>
+            {renderVolumeChart(recording.volume_data, width)}
             <View style={styles.volumeStats}>
-              <View style={styles.volumeStat}>
-                <Text style={styles.volumeLabel}>Mínimo</Text>
-                <Text style={styles.volumeValue}>{recording.volume_min_db?.toFixed(0)} dB</Text>
+              <View style={styles.volumeStatItem}>
+                <Text style={styles.volumeStatLabel}>Mín</Text>
+                <Text style={styles.volumeStatValue}>{recording.volume_min_db?.toFixed(0) ?? 0}%</Text>
               </View>
-              <View style={styles.volumeStat}>
-                <Text style={styles.volumeLabel}>Médio</Text>
-                <Text style={styles.volumeValue}>{recording.volume_avg_db?.toFixed(0)} dB</Text>
+              <View style={styles.volumeStatItem}>
+                <Text style={styles.volumeStatLabel}>Média</Text>
+                <Text style={styles.volumeStatValue}>{recording.volume_avg_db?.toFixed(0) ?? 0}%</Text>
               </View>
-              <View style={styles.volumeStat}>
-                <Text style={styles.volumeLabel}>Máximo</Text>
-                <Text style={styles.volumeValue}>{recording.volume_max_db?.toFixed(0)} dB</Text>
+              <View style={styles.volumeStatItem}>
+                <Text style={styles.volumeStatLabel}>Máx</Text>
+                <Text style={styles.volumeStatValue}>{recording.volume_max_db?.toFixed(0) ?? 0}%</Text>
               </View>
             </View>
           </View>
         )}
 
-        {/* Recommendations */}
-        {recording.recommendations && recording.recommendations.length > 0 && (
-          <View style={styles.recommendationsCard}>
-            <Text style={styles.recommendationsTitle}>💡 RECOMENDAÇÕES</Text>
-            {recording.recommendations.map((rec, index) => (
-              <View key={index} style={styles.recommendationItem}>
-                <Text style={styles.recommendationBullet}>•</Text>
-                <Text style={styles.recommendationText}>{rec}</Text>
-              </View>
-            ))}
+        {/* Metrics Card - Velocidade e Pausas */}
+        <View style={styles.metricsCard}>
+          <Text style={styles.metricsCardTitle}>📈 Métricas de Fala</Text>
+          <View style={styles.metricsRow}>
+            <View style={styles.metricItem}>
+              <Text style={styles.metricValue}>{Math.round(recording.articulation_rate ?? recording.words_per_minute ?? 0)}</Text>
+              <Text style={styles.metricLabel}>palavras/min</Text>
+              <Text style={styles.metricIdeal}>Ideal: {recording.ideal_min_ppm ?? 140}-{recording.ideal_max_ppm ?? 160}</Text>
+            </View>
+            <View style={styles.metricItem}>
+              <Text style={styles.metricValue}>{recording.pause_count ?? 0}</Text>
+              <Text style={styles.metricLabel}>pausas</Text>
+              <Text style={styles.metricIdeal}>detectadas</Text>
+            </View>
+            <View style={styles.metricItem}>
+              <Text style={styles.metricValue}>{recording.duration_seconds?.toFixed(1) ?? 0}s</Text>
+              <Text style={styles.metricLabel}>duração</Text>
+              <Text style={styles.metricIdeal}>total</Text>
+            </View>
           </View>
-        )}
-
-        {/* Patterns */}
-        {recording.patterns_identified && recording.patterns_identified.length > 0 && (
-          <View style={styles.patternsCard}>
-            <Text style={styles.patternsTitle}>PADRÕES IDENTIFICADOS</Text>
-            {recording.patterns_identified.map((pattern, index) => (
-              <View key={index} style={styles.patternItem}>
-                <Text style={styles.patternBullet}>•</Text>
-                <Text style={styles.patternText}>{pattern}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Feedback */}
-        <View style={styles.feedbackCard}>
-          <Text style={styles.feedbackText}>{recording.feedback}</Text>
-          <Text style={styles.confidenceText}>
-            Confiança: {Math.round(recording.confidence * 100)}%
-          </Text>
         </View>
 
         {/* Action Button */}
@@ -662,5 +660,91 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '600',
+  },
+  // Diff comparison styles
+  diffContainer: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#262626',
+  },
+  diffTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  similarityBadge: {
+    fontSize: 14,
+    color: '#10b981',
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  diffGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  diffColumn: {
+    flex: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  diffHeaderExpected: {
+    backgroundColor: '#374151',
+    padding: 10,
+    alignItems: 'center',
+  },
+  diffHeaderTranscribed: {
+    backgroundColor: '#1e3a5f',
+    padding: 10,
+    alignItems: 'center',
+  },
+  diffHeaderText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  diffContent: {
+    backgroundColor: '#262626',
+    padding: 12,
+    minHeight: 100,
+  },
+  diffText: {
+    fontSize: 14,
+    lineHeight: 22,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  wordMatch: {
+    color: '#9ca3af',
+  },
+  wordMissing: {
+    color: '#ef4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  wordCorrect: {
+    color: '#10b981',
+  },
+  wordExtra: {
+    color: '#f59e0b',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#374151',
+  },
+  statText: {
+    fontSize: 13,
+    color: '#9ca3af',
+  },
+  statMissing: {
+    fontSize: 13,
+    color: '#ef4444',
   },
 });

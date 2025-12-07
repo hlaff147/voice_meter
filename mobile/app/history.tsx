@@ -29,7 +29,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const CATEGORY_NAMES: Record<string, string> = {
   presentation: 'Apresentação',
-  pitch: 'Pitch',
+  pitch: 'Discurso',
   conversation: 'Conversação',
   other: 'Outros',
 };
@@ -91,7 +91,7 @@ export default function History() {
 
   const renderItem = ({ item }: { item: Recording }) => {
     const color = CATEGORY_COLORS[item.category] || CATEGORY_COLORS.other;
-    
+
     return (
       <TouchableOpacity
         style={[styles.card, { borderColor: color }]}
@@ -114,7 +114,7 @@ export default function History() {
             <Text style={styles.metricLabel}>Pontuação</Text>
             <Text style={[styles.metricValue, { color }]}>{item.overall_score}</Text>
           </View>
-          
+
           <View style={styles.metricItem}>
             <Text style={styles.metricLabel}>Velocidade</Text>
             <Text style={styles.metricValue}>{Math.round(item.words_per_minute)} PPM</Text>
@@ -132,7 +132,7 @@ export default function History() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       <View style={styles.contentContainer}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -216,12 +216,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
-    alignItems: 'center',
   },
   contentContainer: {
     flex: 1,
     width: '100%',
-    maxWidth: 1024,
   },
   header: {
     paddingTop: 60,

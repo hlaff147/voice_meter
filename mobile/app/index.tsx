@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 export default function Index() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  
+
   const isDesktop = width > 768;
 
   const handleStartPress = () => {
@@ -15,14 +15,14 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       <View style={styles.contentContainer}>
         <View style={styles.header}>
-          <Text style={styles.title}>Voice Meter</Text>
+          <Text style={styles.title}>Medidor de Voz</Text>
           <Text style={styles.subtitle}>Treinamento de Apresentação</Text>
         </View>
 
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -34,7 +34,7 @@ export default function Index() {
             <Text style={styles.heroDescription}>
               Compare sua fala com o texto que você pretende dizer. O sistema irá:
             </Text>
-            
+
             <View style={styles.featureList}>
               <View style={styles.featureItem}>
                 <Text style={styles.featureIcon}>📝</Text>
@@ -69,7 +69,7 @@ export default function Index() {
           </TouchableOpacity>
 
           {/* History Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.historyButton}
             onPress={() => router.push('/history')}
           >
@@ -96,12 +96,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
-    alignItems: 'center',
   },
   contentContainer: {
     flex: 1,
     width: '100%',
-    maxWidth: 600,
   },
   header: {
     paddingTop: 60,

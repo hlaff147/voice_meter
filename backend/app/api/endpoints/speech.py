@@ -203,12 +203,13 @@ async def analyze_speech(
         
         overall_score = int(max(0, min(100, score)))
         
-        # Generate volume data for visualization
+        # Generate real volume data for visualization using librosa RMS
         num_points = min(int(result['duration_seconds']), 60)
-        volume_data = [round(random.uniform(50, 85), 1) for _ in range(num_points)]
-        volume_min = min(volume_data) if volume_data else 0
-        volume_max = max(volume_data) if volume_data else 0
-        volume_avg = sum(volume_data) / len(volume_data) if volume_data else 0
+        volume_result = speech_analyzer.calculate_volume_over_time(audio_data, num_points)
+        volume_data = volume_result['volume_data']
+        volume_min = volume_result['volume_min']
+        volume_max = volume_result['volume_max']
+        volume_avg = volume_result['volume_avg']
         
         # Generate recommendations
         recommendations = []

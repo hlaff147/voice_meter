@@ -1,10 +1,62 @@
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Animated, Easing, Modal, useWindowDimensions, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Animated, Easing, Modal, useWindowDimensions, ScrollView, TextInput, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 import { apiService } from '../src/services/api';
+
+// Função para renderizar gráfico de volume
+const renderVolumeChart = (volumeData: number[] | null, screenWidth: number) => {
+  if (!volumeData || volumeData.length === 0) {
+    return null;
+  }
+
+  const chartHeight = 100;
+  const chartWidth = screenWidth - 80;
+  const maxVolume = Math.max(...volumeData, 1);
+  const barWidth = Math.max(2, chartWidth / volumeData.length - 1);
+
+  return (
+    <View style={chartStyles.chartContainer}>
+      <View style={[chartStyles.chartBars, { height: chartHeight }]}>
+        {volumeData.map((volume, index) => {
+          const barHeight = Math.max(2, (volume / maxVolume) * chartHeight);
+          return (
+            <View
+              key={index}
+              style={[
+                chartStyles.chartBar,
+                {
+                  height: barHeight,
+                  width: barWidth,
+                  backgroundColor: volume > 70 ? '#10b981' : volume > 40 ? '#3b82f6' : '#6b7280'
+                }
+              ]}
+            />
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
+// Estilos do gráfico
+const chartStyles = StyleSheet.create({
+  chartContainer: {
+    width: '100%',
+    marginVertical: 12,
+  },
+  chartBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 1,
+  },
+  chartBar: {
+    borderRadius: 2,
+  },
+});
 
 export default function Recording() {
   const router = useRouter();
@@ -97,7 +149,7 @@ export default function Recording() {
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
     });
-    
+
     const uri = recording.getURI();
     if (uri) {
       await analyzeAudio(uri);
@@ -137,7 +189,7 @@ export default function Recording() {
       setStep('result');
     } catch (error: any) {
       Alert.alert(
-        'Erro', 
+        'Erro',
         `Não foi possível analisar o áudio.\n\nDetalhes: ${error.response?.data?.detail || error.message}`
       );
     } finally {
@@ -168,12 +220,12 @@ export default function Recording() {
   // Step 1: Enter expected text
   if (step === 'text') {
     return (
-      <KeyboardAvoidingView 
-        style={styles.container} 
+      <KeyboardAvoidingView
+        style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <StatusBar style="light" />
-        
+
         <View style={styles.contentContainer}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -181,8 +233,8 @@ export default function Recording() {
             </TouchableOpacity>
           </View>
 
-          <ScrollView 
-            contentContainerStyle={styles.scrollContent} 
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -236,7 +288,7 @@ export default function Recording() {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
-        
+
         <View style={styles.contentContainer}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => setStep('text')} style={styles.backButton}>
@@ -267,7 +319,7 @@ export default function Recording() {
               <Text style={styles.recordingInstruction}>
                 {isRecording ? '🔴 Gravando... Toque para parar' : '🎙️ Toque para começar a gravar'}
               </Text>
-              
+
               <TouchableOpacity
                 onPress={handleRecordPress}
                 disabled={analyzing}
@@ -276,7 +328,7 @@ export default function Recording() {
                 <Animated.View
                   style={[
                     styles.recordButton,
-                    { 
+                    {
                       backgroundColor: isRecording ? '#ef4444' : '#10b981',
                       transform: [{ scale: pulseAnim }]
                     },
@@ -290,7 +342,7 @@ export default function Recording() {
                   )}
                 </Animated.View>
               </TouchableOpacity>
-              
+
               <Text style={styles.recordLabel}>
                 {analyzing ? 'Analisando com IA...' : isRecording ? 'Toque para parar' : 'Toque para gravar'}
               </Text>
@@ -300,8 +352,8 @@ export default function Recording() {
             {!isRecording && !analyzing && (
               <View style={styles.uploadContainer}>
                 <Text style={styles.orText}>— ou —</Text>
-                <TouchableOpacity 
-                  style={styles.uploadButton} 
+                <TouchableOpacity
+                  style={styles.uploadButton}
                   onPress={pickDocument}
                 >
                   <Text style={styles.uploadButtonText}>📂 Carregar Arquivo de Áudio</Text>
@@ -329,7 +381,7 @@ export default function Recording() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       <View style={styles.contentContainer}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -349,108 +401,159 @@ export default function Recording() {
 
           {result && (
             <>
-              {/* Main Score Card */}
-              <View style={[styles.scoreCard, { borderColor: getScoreColor(result.pronunciation_score || result.overall_score) }]}>
-                <Text style={styles.scoreLabel}>PONTUAÇÃO DE PRONÚNCIA</Text>
-                <Text style={[styles.scoreValue, { color: getScoreColor(result.pronunciation_score || result.overall_score) }]}>
-                  {result.pronunciation_score || result.overall_score}
+              {/* Git-diff Style Comparison */}
+              <View style={styles.diffContainer}>
+                <Text style={styles.diffTitle}>📊 Comparação de Textos</Text>
+                <Text style={styles.similarityBadge}>
+                  {(result.similarity_ratio * 100).toFixed(0)}% similaridade
                 </Text>
-                <Text style={styles.scoreSubtext}>
-                  {(result.similarity_ratio * 100).toFixed(1)}% de similaridade
-                </Text>
-              </View>
 
-              {/* Transcription Comparison */}
-              <View style={styles.comparisonCard}>
-                <Text style={styles.comparisonTitle}>📝 Comparação de Textos</Text>
-                
-                <View style={styles.textBox}>
-                  <Text style={styles.textBoxLabel}>Texto Esperado:</Text>
-                  <Text style={styles.textBoxContent}>{result.expected_text}</Text>
+                <View style={styles.diffGrid}>
+                  {/* Expected Text Column */}
+                  <View style={styles.diffColumn}>
+                    <View style={styles.diffHeaderExpected}>
+                      <Text style={styles.diffHeaderText}>📄 ESPERADO</Text>
+                    </View>
+                    <View style={styles.diffContent}>
+                      <Text style={styles.diffText}>
+                        {result.expected_text?.split(' ').map((word: string, idx: number) => {
+                          const transcribedWords = (result.transcribed_text || '').toLowerCase().split(' ');
+                          const isPresent = transcribedWords.includes(word.toLowerCase().replace(/[.,!?]/g, ''));
+                          return (
+                            <Text
+                              key={idx}
+                              style={isPresent ? styles.wordMatch : styles.wordMissing}
+                            >
+                              {word}{' '}
+                            </Text>
+                          );
+                        })}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Transcribed Text Column */}
+                  <View style={styles.diffColumn}>
+                    <View style={styles.diffHeaderTranscribed}>
+                      <Text style={styles.diffHeaderText}>🎤 TRANSCRITO</Text>
+                    </View>
+                    <View style={styles.diffContent}>
+                      <Text style={styles.diffText}>
+                        {result.transcribed_text ? result.transcribed_text.split(' ').map((word: string, idx: number) => {
+                          const expectedWords = (result.expected_text || '').toLowerCase().split(' ').map((w: string) => w.replace(/[.,!?]/g, ''));
+                          const isExpected = expectedWords.includes(word.toLowerCase().replace(/[.,!?]/g, ''));
+                          return (
+                            <Text
+                              key={idx}
+                              style={isExpected ? styles.wordCorrect : styles.wordExtra}
+                            >
+                              {word}{' '}
+                            </Text>
+                          );
+                        }) : <Text style={styles.wordMissing}>Não foi possível transcrever</Text>}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
 
-                <View style={[styles.textBox, styles.textBoxTranscribed]}>
-                  <Text style={styles.textBoxLabel}>O que você disse:</Text>
-                  <Text style={styles.textBoxContent}>{result.transcribed_text || 'Não foi possível transcrever'}</Text>
-                </View>
-              </View>
-
-              {/* Metrics Grid */}
-              <View style={styles.metricsGrid}>
-                <View style={styles.metricCard}>
-                  <Text style={styles.metricLabel}>Velocidade</Text>
-                  <Text style={styles.metricValue}>{Math.round(result.articulation_rate)} PPM</Text>
-                  <Text style={[styles.metricStatus, { color: result.is_within_range ? '#10b981' : '#f59e0b' }]}>
-                    {result.is_within_range ? '✓ Ideal' : '⚠️ Ajustar'}
+                {/* Simple Stats */}
+                <View style={styles.statsRow}>
+                  <Text style={styles.statText}>
+                    {result.transcribed_word_count || 0} / {result.expected_word_count || 0} palavras detectadas
                   </Text>
-                </View>
-
-                <View style={styles.metricCard}>
-                  <Text style={styles.metricLabel}>Palavras</Text>
-                  <Text style={styles.metricValue}>
-                    {result.transcribed_word_count || '—'}/{result.expected_word_count || '—'}
-                  </Text>
-                  <Text style={styles.metricStatus}>detectadas/esperadas</Text>
-                </View>
-
-                <View style={styles.metricCard}>
-                  <Text style={styles.metricLabel}>Precisão</Text>
-                  <Text style={styles.metricValue}>
-                    {result.word_accuracy ? (result.word_accuracy * 100).toFixed(0) : '—'}%
-                  </Text>
-                  <Text style={styles.metricStatus}>por palavra</Text>
-                </View>
-
-                <View style={styles.metricCard}>
-                  <Text style={styles.metricLabel}>Duração</Text>
-                  <Text style={styles.metricValue}>{result.duration_seconds?.toFixed(1)}s</Text>
-                  <Text style={styles.metricStatus}>{result.pause_count} pausas</Text>
-                </View>
-              </View>
-
-              {/* Issues Found */}
-              {(result.missing_words?.length > 0 || result.mispronounced_words?.length > 0) && (
-                <View style={styles.issuesCard}>
-                  <Text style={styles.issuesTitle}>⚠️ Pontos de Atenção</Text>
-                  
                   {result.missing_words?.length > 0 && (
-                    <View style={styles.issueSection}>
-                      <Text style={styles.issueLabel}>Palavras não detectadas:</Text>
-                      <Text style={styles.issueWords}>{result.missing_words.slice(0, 5).join(', ')}</Text>
-                    </View>
+                    <Text style={styles.statMissing}>
+                      {result.missing_words.length} não encontradas
+                    </Text>
                   )}
+                </View>
+              </View>
 
-                  {result.mispronounced_words?.length > 0 && (
-                    <View style={styles.issueSection}>
-                      <Text style={styles.issueLabel}>Pronúncia diferente:</Text>
-                      {result.mispronounced_words.slice(0, 3).map((mp: any, idx: number) => (
-                        <Text key={idx} style={styles.issueWords}>
-                          "{mp.expected}" → "{mp.heard}"
-                        </Text>
-                      ))}
+              {/* Volume Chart Card */}
+              {result.volume_data && result.volume_data.length > 0 && (
+                <View style={styles.audioCard}>
+                  <Text style={styles.audioCardTitle}>🔊 Volume do Áudio</Text>
+                  {renderVolumeChart(result.volume_data, width)}
+                  <View style={styles.volumeStats}>
+                    <View style={styles.volumeStatItem}>
+                      <Text style={styles.volumeStatLabel}>Mín</Text>
+                      <Text style={styles.volumeStatValue}>{result.volume_min?.toFixed(0) || 0}%</Text>
                     </View>
-                  )}
+                    <View style={styles.volumeStatItem}>
+                      <Text style={styles.volumeStatLabel}>Média</Text>
+                      <Text style={styles.volumeStatValue}>{result.volume_avg?.toFixed(0) || 0}%</Text>
+                    </View>
+                    <View style={styles.volumeStatItem}>
+                      <Text style={styles.volumeStatLabel}>Máx</Text>
+                      <Text style={styles.volumeStatValue}>{result.volume_max?.toFixed(0) || 0}%</Text>
+                    </View>
+                  </View>
                 </View>
               )}
 
-              {/* Feedback */}
-              {result.comparison_feedback && (
-                <View style={styles.feedbackCard}>
-                  <Text style={styles.feedbackText}>{result.comparison_feedback}</Text>
+              {/* Metrics Card - Velocidade e Pausas */}
+              <View style={styles.metricsCard}>
+                <Text style={styles.metricsCardTitle}>📈 Métricas de Fala</Text>
+                <View style={styles.metricsRow}>
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricValue}>{result.words_per_minute || result.articulation_rate || 0}</Text>
+                    <Text style={styles.metricLabel}>palavras/min</Text>
+                    <Text style={styles.metricIdeal}>Ideal: {result.ideal_min_ppm || 140}-{result.ideal_max_ppm || 160}</Text>
+                  </View>
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricValue}>{result.pause_count || 0}</Text>
+                    <Text style={styles.metricLabel}>pausas</Text>
+                    <Text style={styles.metricIdeal}>detectadas</Text>
+                  </View>
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricValue}>{result.duration_seconds?.toFixed(1) || 0}s</Text>
+                    <Text style={styles.metricLabel}>duração</Text>
+                    <Text style={styles.metricIdeal}>total</Text>
+                  </View>
                 </View>
-              )}
+              </View>
+
+              {/* Feedback Card */}
+              <View style={[
+                styles.feedbackCard,
+                { borderColor: (result.similarity_ratio * 100) >= 70 ? '#10b981' : '#f59e0b' }
+              ]}>
+                <Text style={[
+                  styles.feedbackTitle,
+                  { color: (result.similarity_ratio * 100) >= 70 ? '#10b981' : '#f59e0b' }
+                ]}>
+                  {(result.similarity_ratio * 100) >= 90 ? '🎉 Excelente!' : 
+                   (result.similarity_ratio * 100) >= 70 ? '👍 Bom trabalho!' : 
+                   (result.similarity_ratio * 100) >= 50 ? '💪 Continue praticando!' : '📚 Precisa melhorar'}
+                </Text>
+                <Text style={styles.feedbackText}>
+                  {(result.similarity_ratio * 100) >= 90 
+                    ? 'Sua pronúncia está muito próxima do texto esperado. Parabéns!' 
+                    : (result.similarity_ratio * 100) >= 70 
+                    ? 'Você está no caminho certo! Algumas palavras podem ser melhoradas.'
+                    : (result.similarity_ratio * 100) >= 50
+                    ? 'Pratique mais as palavras destacadas em vermelho para melhorar.'
+                    : 'Revise o texto e pratique a pronúncia das palavras não detectadas.'}
+                </Text>
+                {result.missing_words?.length > 0 && (
+                  <Text style={styles.feedbackMissing}>
+                    ⚠️ Palavras não detectadas: {result.missing_words.slice(0, 5).join(', ')}
+                    {result.missing_words.length > 5 ? ` (+${result.missing_words.length - 5} mais)` : ''}
+                  </Text>
+                )}
+              </View>
 
               {/* Action Buttons */}
               {result.recording_id && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.detailButton}
                   onPress={() => router.push(`/recording-detail?id=${result.recording_id}`)}
                 >
-                  <Text style={styles.detailButtonText}>📊 Ver Detalhes Completos</Text>
+                  <Text style={styles.detailButtonText}>📋 Ver Detalhes Completos</Text>
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.tryAgainButton}
                 onPress={handleTryAgain}
               >
@@ -468,12 +571,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
-    alignItems: 'center',
   },
   contentContainer: {
     flex: 1,
     width: '100%',
-    maxWidth: 600,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -818,7 +919,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     width: '80%',
-    maxWidth: 300,
   },
   loadingText: {
     color: '#fff',
@@ -831,5 +931,206 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontSize: 14,
     textAlign: 'center',
+  },
+  // Diff comparison styles
+  diffContainer: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#262626',
+  },
+  diffTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  similarityBadge: {
+    fontSize: 14,
+    color: '#10b981',
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  diffGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  diffColumn: {
+    flex: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  diffHeaderExpected: {
+    backgroundColor: '#374151',
+    padding: 10,
+    alignItems: 'center',
+  },
+  diffHeaderTranscribed: {
+    backgroundColor: '#1e3a5f',
+    padding: 10,
+    alignItems: 'center',
+  },
+  diffHeaderText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  diffContent: {
+    backgroundColor: '#262626',
+    padding: 12,
+    minHeight: 100,
+  },
+  diffText: {
+    fontSize: 14,
+    lineHeight: 22,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  wordMatch: {
+    color: '#9ca3af',
+  },
+  wordMissing: {
+    color: '#ef4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  wordCorrect: {
+    color: '#10b981',
+  },
+  wordExtra: {
+    color: '#f59e0b',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#374151',
+  },
+  statText: {
+    fontSize: 13,
+    color: '#9ca3af',
+  },
+  statMissing: {
+    fontSize: 13,
+    color: '#ef4444',
+  },
+  // Audio card styles
+  audioCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#262626',
+  },
+  audioCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  volumeStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#374151',
+  },
+  volumeStatItem: {
+    alignItems: 'center',
+  },
+  volumeStatLabel: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginBottom: 2,
+  },
+  volumeStatValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  // Metrics card styles
+  metricsCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#262626',
+  },
+  metricsCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 16,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  metricItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  metricValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#10b981',
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 4,
+  },
+  metricIdeal: {
+    fontSize: 10,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  // Feedback card styles
+  feedbackCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#10b981',
+  },
+  feedbackTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#10b981',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  feedbackText: {
+    fontSize: 14,
+    color: '#d1d5db',
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  feedbackMissing: {
+    fontSize: 12,
+    color: '#f59e0b',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  // Detail button styles
+  detailButton: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

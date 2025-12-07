@@ -1,0 +1,44 @@
+@startuml architecture
+!theme plain
+
+title Medidor de Voz - Arquitetura
+
+skinparam componentStyle rectangle
+skinparam backgroundColor white
+skinparam defaultFontSize 12
+
+' ==================== FRONTEND ====================
+package "Frontend (React Native/Expo)" as frontend #E3F2FD {
+    [Telas da Aplicação] as screens
+    note right of screens
+      • Home
+      • Gravação
+      • Detalhes
+      • Histórico
+    end note
+}
+
+' ==================== BACKEND ====================
+package "Backend (FastAPI)" as backend #E8F5E9 {
+    [API REST] as api
+    [Serviços] as services
+    note right of services
+      • Análise de Áudio
+      • Transcrição
+      • Comparação de Texto
+    end note
+}
+
+' ==================== EXTERNAL ====================
+cloud "OpenAI Whisper" as whisper #F3E5F5
+
+' ==================== DATABASE ====================
+database "SQLite" as db #FFF3E0
+
+' ==================== CONNECTIONS ====================
+screens -down-> api : "HTTP/JSON"
+api -down-> services
+services -right-> whisper : "Transcrição"
+services -down-> db : "Persistência"
+
+@enduml
