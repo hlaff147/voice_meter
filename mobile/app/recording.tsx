@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 import { apiService } from '../src/services/api';
+import TextDiff from '../src/components/TextDiff';
 
 export default function Recording() {
   const router = useRouter();
@@ -97,7 +98,7 @@ export default function Recording() {
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
     });
-    
+
     const uri = recording.getURI();
     if (uri) {
       await analyzeAudio(uri);
@@ -137,7 +138,7 @@ export default function Recording() {
       setStep('result');
     } catch (error: any) {
       Alert.alert(
-        'Erro', 
+        'Erro',
         `Não foi possível analisar o áudio.\n\nDetalhes: ${error.response?.data?.detail || error.message}`
       );
     } finally {
@@ -168,12 +169,12 @@ export default function Recording() {
   // Step 1: Enter expected text
   if (step === 'text') {
     return (
-      <KeyboardAvoidingView 
-        style={styles.container} 
+      <KeyboardAvoidingView
+        style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <StatusBar style="light" />
-        
+
         <View style={styles.contentContainer}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -181,8 +182,8 @@ export default function Recording() {
             </TouchableOpacity>
           </View>
 
-          <ScrollView 
-            contentContainerStyle={styles.scrollContent} 
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -236,7 +237,7 @@ export default function Recording() {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
-        
+
         <View style={styles.contentContainer}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => setStep('text')} style={styles.backButton}>
@@ -267,7 +268,7 @@ export default function Recording() {
               <Text style={styles.recordingInstruction}>
                 {isRecording ? '🔴 Gravando... Toque para parar' : '🎙️ Toque para começar a gravar'}
               </Text>
-              
+
               <TouchableOpacity
                 onPress={handleRecordPress}
                 disabled={analyzing}
@@ -276,7 +277,7 @@ export default function Recording() {
                 <Animated.View
                   style={[
                     styles.recordButton,
-                    { 
+                    {
                       backgroundColor: isRecording ? '#ef4444' : '#10b981',
                       transform: [{ scale: pulseAnim }]
                     },
@@ -290,7 +291,7 @@ export default function Recording() {
                   )}
                 </Animated.View>
               </TouchableOpacity>
-              
+
               <Text style={styles.recordLabel}>
                 {analyzing ? 'Analisando com IA...' : isRecording ? 'Toque para parar' : 'Toque para gravar'}
               </Text>
@@ -300,8 +301,8 @@ export default function Recording() {
             {!isRecording && !analyzing && (
               <View style={styles.uploadContainer}>
                 <Text style={styles.orText}>— ou —</Text>
-                <TouchableOpacity 
-                  style={styles.uploadButton} 
+                <TouchableOpacity
+                  style={styles.uploadButton}
                   onPress={pickDocument}
                 >
                   <Text style={styles.uploadButtonText}>📂 Carregar Arquivo de Áudio</Text>
@@ -329,7 +330,7 @@ export default function Recording() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       <View style={styles.contentContainer}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -360,19 +361,22 @@ export default function Recording() {
                 </Text>
               </View>
 
-              {/* Transcription Comparison */}
+              {/* Visual Diff Comparison */}
               <View style={styles.comparisonCard}>
-                <Text style={styles.comparisonTitle}>📝 Comparação de Textos</Text>
-                
-                <View style={styles.textBox}>
-                  <Text style={styles.textBoxLabel}>Texto Esperado:</Text>
-                  <Text style={styles.textBoxContent}>{result.expected_text}</Text>
-                </View>
-
-                <View style={[styles.textBox, styles.textBoxTranscribed]}>
-                  <Text style={styles.textBoxLabel}>O que você disse:</Text>
-                  <Text style={styles.textBoxContent}>{result.transcribed_text || 'Não foi possível transcrever'}</Text>
-                </View>
+                <Text style={styles.comparisonTitle}>📝 Comparação de Texto</Text>
+                {result.expected_text && result.transcribed_text ? (
+                  <View style={styles.diffWrapper}>
+                    <TextDiff
+                      expectedText={result.expected_text}
+                      transcribedText={result.transcribed_text}
+                      showLegend={true}
+                    />
+                  </View>
+                ) : (
+                  <Text style={styles.textBoxContent}>
+                    {result.transcribed_text || 'Não foi possível transcrever'}
+                  </Text>
+                )}
               </View>
 
               {/* Metrics Grid */}
@@ -412,7 +416,7 @@ export default function Recording() {
               {(result.missing_words?.length > 0 || result.mispronounced_words?.length > 0) && (
                 <View style={styles.issuesCard}>
                   <Text style={styles.issuesTitle}>⚠️ Pontos de Atenção</Text>
-                  
+
                   {result.missing_words?.length > 0 && (
                     <View style={styles.issueSection}>
                       <Text style={styles.issueLabel}>Palavras não detectadas:</Text>
@@ -442,7 +446,7 @@ export default function Recording() {
 
               {/* Action Buttons */}
               {result.recording_id && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.detailButton}
                   onPress={() => router.push(`/recording-detail?id=${result.recording_id}`)}
                 >
@@ -450,7 +454,7 @@ export default function Recording() {
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.tryAgainButton}
                 onPress={handleTryAgain}
               >
@@ -467,7 +471,7 @@ export default function Recording() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#0f0f0f',
     alignItems: 'center',
   },
   contentContainer: {
@@ -540,14 +544,14 @@ const styles = StyleSheet.create({
   },
   sectionDescription: {
     fontSize: 14,
-    color: '#9ca3af',
+    color: '#a1a1aa',
     marginBottom: 16,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   textInput: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1c1c1e',
     borderWidth: 2,
-    borderColor: '#262626',
+    borderColor: '#2c2c2e',
     borderRadius: 12,
     padding: 16,
     color: '#fff',
@@ -557,7 +561,7 @@ const styles = StyleSheet.create({
   },
   charCount: {
     textAlign: 'right',
-    color: '#6b7280',
+    color: '#71717a',
     fontSize: 12,
     marginTop: 8,
     marginBottom: 20,
@@ -567,6 +571,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   continueButtonDisabled: {
     backgroundColor: '#404040',
@@ -578,16 +587,16 @@ const styles = StyleSheet.create({
   },
   // Recording step
   textPreviewCard: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1c1c1e',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: '#2c2c2e',
   },
   textPreviewTitle: {
     fontSize: 14,
-    color: '#9ca3af',
+    color: '#a1a1aa',
     marginBottom: 8,
   },
   textPreviewContent: {
@@ -627,7 +636,7 @@ const styles = StyleSheet.create({
   recordLabel: {
     marginTop: 20,
     fontSize: 14,
-    color: '#9ca3af',
+    color: '#a1a1aa',
     fontWeight: '600',
   },
   uploadContainer: {
@@ -635,35 +644,39 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   orText: {
-    color: '#6b7280',
+    color: '#71717a',
     fontSize: 14,
     marginBottom: 16,
   },
   uploadButton: {
-    backgroundColor: '#262626',
+    backgroundColor: '#252528',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#404040',
+    borderColor: '#3c3c3f',
   },
   uploadButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },
-  // Results step
   scoreCard: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1c1c1e',
     borderRadius: 16,
     borderWidth: 3,
     padding: 24,
     alignItems: 'center',
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   scoreLabel: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: '#a1a1aa',
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -674,21 +687,25 @@ const styles = StyleSheet.create({
   },
   scoreSubtext: {
     fontSize: 14,
-    color: '#9ca3af',
+    color: '#a1a1aa',
   },
   comparisonCard: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#18181b',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: '#27272a',
   },
   comparisonTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  diffWrapper: {
+    marginHorizontal: -16,
+    marginBottom: -16,
   },
   textBox: {
     backgroundColor: '#262626',
@@ -719,16 +736,16 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     width: '48%',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1c1c1e',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: '#2c2c2e',
     padding: 14,
     alignItems: 'center',
   },
   metricLabel: {
     fontSize: 11,
-    color: '#9ca3af',
+    color: '#a1a1aa',
     marginBottom: 6,
   },
   metricValue: {
@@ -739,10 +756,10 @@ const styles = StyleSheet.create({
   },
   metricStatus: {
     fontSize: 11,
-    color: '#6b7280',
+    color: '#71717a',
   },
   issuesCard: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1c1c1e',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -760,7 +777,7 @@ const styles = StyleSheet.create({
   },
   issueLabel: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: '#a1a1aa',
     marginBottom: 4,
   },
   issueWords: {
@@ -768,17 +785,17 @@ const styles = StyleSheet.create({
     color: '#d1d5db',
   },
   feedbackCard: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1c1c1e',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: '#2c2c2e',
   },
   feedbackText: {
     fontSize: 14,
     color: '#d1d5db',
-    lineHeight: 22,
+    lineHeight: 24,
   },
   detailButton: {
     backgroundColor: '#3b82f6',
@@ -798,7 +815,7 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#404040',
+    borderColor: '#3c3c3f',
   },
   tryAgainText: {
     color: '#fff',
@@ -813,7 +830,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingCard: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1c1c1e',
     padding: 32,
     borderRadius: 16,
     alignItems: 'center',
@@ -828,7 +845,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   loadingSubText: {
-    color: '#9ca3af',
+    color: '#a1a1aa',
     fontSize: 14,
     textAlign: 'center',
   },

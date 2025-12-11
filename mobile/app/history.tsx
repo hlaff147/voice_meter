@@ -91,10 +91,19 @@ export default function History() {
 
   const renderItem = ({ item }: { item: Recording }) => {
     const color = CATEGORY_COLORS[item.category] || CATEGORY_COLORS.other;
-    
+    const scorePercent = Math.min(Math.max(item.overall_score, 0), 100);
+
+    // Determine score color based on value
+    const getScoreColor = (score: number) => {
+      if (score >= 80) return '#10b981';
+      if (score >= 60) return '#f59e0b';
+      return '#ef4444';
+    };
+    const scoreColor = getScoreColor(item.overall_score);
+
     return (
       <TouchableOpacity
-        style={[styles.card, { borderColor: color }]}
+        style={[styles.card, { borderLeftColor: color, borderLeftWidth: 4 }]}
         onPress={() => handleRecordingPress(item.id)}
         activeOpacity={0.7}
       >
@@ -109,19 +118,30 @@ export default function History() {
           <Text style={styles.recordingTitle}>{item.title}</Text>
         )}
 
+        {/* Score Progress Bar */}
+        <View style={styles.scoreProgressContainer}>
+          <View style={styles.scoreProgressHeader}>
+            <Text style={styles.scoreLabel}>Pontuação</Text>
+            <Text style={[styles.scoreValueLarge, { color: scoreColor }]}>{item.overall_score}</Text>
+          </View>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${scorePercent}%`, backgroundColor: scoreColor }
+              ]}
+            />
+          </View>
+        </View>
+
         <View style={styles.metricsRow}>
           <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>Pontuação</Text>
-            <Text style={[styles.metricValue, { color }]}>{item.overall_score}</Text>
-          </View>
-          
-          <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>Velocidade</Text>
+            <Text style={styles.metricIcon}>⚡</Text>
             <Text style={styles.metricValue}>{Math.round(item.words_per_minute)} PPM</Text>
           </View>
 
           <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>Duração</Text>
+            <Text style={styles.metricIcon}>⏱️</Text>
             <Text style={styles.metricValue}>{formatDuration(item.duration_seconds)}</Text>
           </View>
         </View>
@@ -132,7 +152,7 @@ export default function History() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       <View style={styles.contentContainer}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -215,7 +235,7 @@ export default function History() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#0f0f0f',
     alignItems: 'center',
   },
   contentContainer: {
@@ -254,15 +274,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#333',
-    backgroundColor: '#1a1a1a',
+    borderColor: '#2c2c2e',
+    backgroundColor: '#1c1c1e',
   },
   filterButtonActive: {
     backgroundColor: '#3b82f6',
     borderColor: '#3b82f6',
   },
   filterButtonText: {
-    color: '#9ca3af',
+    color: '#a1a1aa',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -282,12 +302,18 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   card: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1c1c1e',
     borderRadius: 16,
     padding: 16,
-    borderWidth: 2,
+    borderWidth: 1,
+    borderColor: '#2c2c2e',
     marginBottom: 16,
     flex: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -306,7 +332,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   date: {
-    color: '#9ca3af',
+    color: '#a1a1aa',
     fontSize: 12,
   },
   recordingTitle: {
@@ -328,9 +354,40 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   metricValue: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#fff',
     fontWeight: '600',
+  },
+  metricIcon: {
+    fontSize: 14,
+    marginRight: 4,
+  },
+  scoreProgressContainer: {
+    marginBottom: 12,
+  },
+  scoreProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  scoreLabel: {
+    fontSize: 12,
+    color: '#a1a1aa',
+  },
+  scoreValueLarge: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: '#252528',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
   },
   errorText: {
     color: '#ef4444',
@@ -362,12 +419,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptySubtext: {
-    color: '#6b7280',
+    color: '#71717a',
     fontSize: 14,
     textAlign: 'center',
   },
   statsButton: {
-    backgroundColor: '#262626',
+    backgroundColor: '#1c1c1e',
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#3b82f6',

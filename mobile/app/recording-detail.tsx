@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect } from 'react';
 import api from '../src/services/api';
+import TextDiff from '../src/components/TextDiff';
 
 interface MispronouncedWord {
   expected: string;
@@ -56,7 +57,7 @@ export default function RecordingDetail() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const recordingId = params.id as string;
-  
+
   const [recording, setRecording] = useState<RecordingDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -183,25 +184,27 @@ export default function RecordingDetail() {
           <Text style={styles.scoreCategory}>Apresentação</Text>
         </View>
 
-        {/* Text Comparison Section - NEW */}
+        {/* Visual Diff Comparison */}
         {recording.expected_text && (
           <View style={styles.comparisonCard}>
-            <Text style={styles.comparisonTitle}>📝 Comparação de Textos</Text>
-            
-            <View style={styles.textBox}>
-              <Text style={styles.textBoxLabel}>Texto Esperado:</Text>
-              <Text style={styles.textBoxContent}>{recording.expected_text}</Text>
-            </View>
+            <Text style={styles.comparisonTitle}>📝 Comparação Visual</Text>
 
-            <View style={[styles.textBox, styles.textBoxTranscribed]}>
-              <Text style={styles.textBoxLabel}>O que você disse:</Text>
+            {recording.transcribed_text ? (
+              <View style={styles.diffWrapper}>
+                <TextDiff
+                  expectedText={recording.expected_text}
+                  transcribedText={recording.transcribed_text}
+                  showLegend={true}
+                />
+              </View>
+            ) : (
               <Text style={styles.textBoxContent}>
-                {recording.transcribed_text || 'Não foi possível transcrever'}
+                Não foi possível transcrever
               </Text>
-            </View>
+            )}
 
             {/* Word counts */}
-            <View style={styles.wordCountRow}>
+            <View style={[styles.wordCountRow, { marginTop: 12 }]}>
               <Text style={styles.wordCountText}>
                 Palavras: {recording.transcribed_word_count ?? '—'} / {recording.expected_word_count ?? '—'}
               </Text>
@@ -215,33 +218,33 @@ export default function RecordingDetail() {
         )}
 
         {/* Issues Found - NEW */}
-        {((recording.missing_words && recording.missing_words.length > 0) || 
+        {((recording.missing_words && recording.missing_words.length > 0) ||
           (recording.mispronounced_words && recording.mispronounced_words.length > 0)) && (
-          <View style={styles.issuesCard}>
-            <Text style={styles.issuesTitle}>⚠️ Pontos de Atenção</Text>
-            
-            {recording.missing_words && recording.missing_words.length > 0 && (
-              <View style={styles.issueSection}>
-                <Text style={styles.issueLabel}>Palavras não detectadas:</Text>
-                <Text style={styles.issueWords}>
-                  {recording.missing_words.slice(0, 8).join(', ')}
-                  {recording.missing_words.length > 8 && ` (+${recording.missing_words.length - 8})`}
-                </Text>
-              </View>
-            )}
+            <View style={styles.issuesCard}>
+              <Text style={styles.issuesTitle}>⚠️ Pontos de Atenção</Text>
 
-            {recording.mispronounced_words && recording.mispronounced_words.length > 0 && (
-              <View style={styles.issueSection}>
-                <Text style={styles.issueLabel}>Pronúncia diferente:</Text>
-                {recording.mispronounced_words.slice(0, 5).map((mp, idx) => (
-                  <Text key={idx} style={styles.issueWords}>
-                    "{mp.expected}" → "{mp.heard}" ({(mp.similarity * 100).toFixed(0)}%)
+              {recording.missing_words && recording.missing_words.length > 0 && (
+                <View style={styles.issueSection}>
+                  <Text style={styles.issueLabel}>Palavras não detectadas:</Text>
+                  <Text style={styles.issueWords}>
+                    {recording.missing_words.slice(0, 8).join(', ')}
+                    {recording.missing_words.length > 8 && ` (+${recording.missing_words.length - 8})`}
                   </Text>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
+                </View>
+              )}
+
+              {recording.mispronounced_words && recording.mispronounced_words.length > 0 && (
+                <View style={styles.issueSection}>
+                  <Text style={styles.issueLabel}>Pronúncia diferente:</Text>
+                  {recording.mispronounced_words.slice(0, 5).map((mp, idx) => (
+                    <Text key={idx} style={styles.issueWords}>
+                      "{mp.expected}" → "{mp.heard}" ({(mp.similarity * 100).toFixed(0)}%)
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
 
         {/* Metrics Grid */}
         <View style={styles.metricsGrid}>
@@ -306,38 +309,30 @@ export default function RecordingDetail() {
           </View>
         )}
 
-        {/* Recommendations */}
-        {recording.recommendations && recording.recommendations.length > 0 && (
-          <View style={styles.recommendationsCard}>
-            <Text style={styles.recommendationsTitle}>💡 RECOMENDAÇÕES</Text>
-            {recording.recommendations.map((rec, index) => (
-              <View key={index} style={styles.recommendationItem}>
-                <Text style={styles.recommendationBullet}>•</Text>
-                <Text style={styles.recommendationText}>{rec}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+        {/* Consolidated Insights Card */}
+        <View style={styles.insightsCard}>
+          <Text style={styles.insightsTitle}>📋 Análise</Text>
 
-        {/* Patterns */}
-        {recording.patterns_identified && recording.patterns_identified.length > 0 && (
-          <View style={styles.patternsCard}>
-            <Text style={styles.patternsTitle}>PADRÕES IDENTIFICADOS</Text>
-            {recording.patterns_identified.map((pattern, index) => (
-              <View key={index} style={styles.patternItem}>
-                <Text style={styles.patternBullet}>•</Text>
-                <Text style={styles.patternText}>{pattern}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+          {/* Key action items - top 3 most important */}
+          {recording.recommendations && recording.recommendations.length > 0 && (
+            <View style={styles.insightSection}>
+              {recording.recommendations.slice(0, 3).map((rec, index) => (
+                <View key={index} style={styles.insightRow}>
+                  <Text style={styles.insightIcon}>💡</Text>
+                  <Text style={styles.insightText}>{rec}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
-        {/* Feedback */}
-        <View style={styles.feedbackCard}>
-          <Text style={styles.feedbackText}>{recording.feedback}</Text>
-          <Text style={styles.confidenceText}>
-            Confiança: {Math.round(recording.confidence * 100)}%
-          </Text>
+          {/* Quick summary from feedback - just the main message */}
+          {recording.feedback && (
+            <View style={styles.summaryBox}>
+              <Text style={styles.summaryText}>
+                {recording.feedback.split('.')[0]}.
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Action Button */}
@@ -432,18 +427,22 @@ const styles = StyleSheet.create({
   },
   // Text Comparison styles
   comparisonCard: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#18181b',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: '#27272a',
+    overflow: 'hidden',
   },
   comparisonTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  diffWrapper: {
+    marginHorizontal: -16,
   },
   textBox: {
     backgroundColor: '#262626',
@@ -603,6 +602,52 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#d1d5db',
     fontSize: 14,
+    lineHeight: 20,
+  },
+  // Consolidated Insights Card styles
+  insightsCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#262626',
+    padding: 20,
+    marginBottom: 20,
+  },
+  insightsTitle: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  insightSection: {
+    marginBottom: 12,
+  },
+  insightRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  insightIcon: {
+    fontSize: 14,
+    marginRight: 10,
+    marginTop: 2,
+  },
+  insightText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#d1d5db',
+    lineHeight: 20,
+  },
+  summaryBox: {
+    backgroundColor: '#10b98115',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#10b981',
+  },
+  summaryText: {
+    fontSize: 14,
+    color: '#10b981',
     lineHeight: 20,
   },
   patternsCard: {

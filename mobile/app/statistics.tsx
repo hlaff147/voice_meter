@@ -169,6 +169,59 @@ export default function Statistics() {
         <View style={styles.evolutionCard}>
           <Text style={styles.evolutionTitle}>EVOLUÇÃO (30 DIAS)</Text>
           {renderChart()}
+          {/* Average line indicator */}
+          {stats.evolution_data && stats.evolution_data.length > 0 && (
+            <View style={styles.chartLegend}>
+              <Text style={styles.chartLegendText}>
+                Média: {Math.round(stats.average_score)} pts
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Insights Card */}
+        <View style={styles.insightsCard}>
+          <Text style={styles.insightsTitle}>💡 Insights</Text>
+          {stats.score_trend >= 5 && (
+            <View style={styles.insightItem}>
+              <Text style={styles.insightIcon}>🚀</Text>
+              <Text style={styles.insightText}>
+                Você está melhorando! Subiu {stats.score_trend} pontos este mês.
+              </Text>
+            </View>
+          )}
+          {stats.score_trend < 0 && (
+            <View style={styles.insightItem}>
+              <Text style={styles.insightIcon}>💪</Text>
+              <Text style={styles.insightText}>
+                Continue praticando! Tente manter uma rotina de treino diária.
+              </Text>
+            </View>
+          )}
+          {stats.best_score >= 85 && (
+            <View style={styles.insightItem}>
+              <Text style={styles.insightIcon}>🏆</Text>
+              <Text style={styles.insightText}>
+                Excelente! Sua melhor pontuação é {stats.best_score} - você está no caminho certo!
+              </Text>
+            </View>
+          )}
+          {stats.recordings_this_week === 0 && (
+            <View style={styles.insightItem}>
+              <Text style={styles.insightIcon}>⏰</Text>
+              <Text style={styles.insightText}>
+                Você ainda não treinou esta semana. Que tal fazer uma gravação agora?
+              </Text>
+            </View>
+          )}
+          {stats.recordings_this_week >= 3 && (
+            <View style={styles.insightItem}>
+              <Text style={styles.insightIcon}>🔥</Text>
+              <Text style={styles.insightText}>
+                Ótimo ritmo! {stats.recordings_this_week} treinos esta semana.
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Action Buttons */}
@@ -336,6 +389,44 @@ const styles = StyleSheet.create({
   },
   chartBar: {
     borderRadius: 4,
+  },
+  chartLegend: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  chartLegendText: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  insightsCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#10b981',
+    padding: 20,
+    marginBottom: 20,
+  },
+  insightsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 12,
+  },
+  insightItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+    paddingVertical: 4,
+  },
+  insightIcon: {
+    fontSize: 16,
+    marginRight: 10,
+  },
+  insightText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#d1d5db',
+    lineHeight: 20,
   },
   actionButton: {
     backgroundColor: '#3b82f6',

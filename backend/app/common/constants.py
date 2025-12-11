@@ -14,6 +14,50 @@ SUPPORTED_LANGUAGES = ["pt-BR", "en-US"]
 DEFAULT_LANGUAGE = "pt-BR"
 
 # =============================================================================
+# PORTUGUESE LANGUAGE CONFIGURATION (projeto 100% pt-BR)
+# =============================================================================
+
+PORTUGUESE_VOWELS = set('aeiouáéíóúàèìòùâêîôûãõäëïöü')
+PORTUGUESE_DIGRAPHS = ['lh', 'nh', 'ch', 'rr', 'ss', 'qu', 'gu']
+
+# Portuguese function words for lexical density
+PORTUGUESE_FUNCTION_WORDS = {
+    'o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas',
+    'de', 'da', 'do', 'das', 'dos', 'em', 'na', 'no', 'nas', 'nos',
+    'por', 'para', 'com', 'sem', 'sob', 'sobre',
+    'e', 'ou', 'mas', 'porém', 'contudo', 'todavia',
+    'que', 'qual', 'quais', 'quem', 'onde', 'quando', 'como',
+    'eu', 'tu', 'ele', 'ela', 'nós', 'vós', 'eles', 'elas',
+    'me', 'te', 'se', 'nos', 'vos', 'lhe', 'lhes',
+    'meu', 'minha', 'teu', 'tua', 'seu', 'sua', 'nosso', 'nossa',
+    'este', 'esta', 'esse', 'essa', 'aquele', 'aquela',
+    'isto', 'isso', 'aquilo', 'ser', 'estar', 'ter', 'haver',
+    'é', 'são', 'foi', 'foram', 'será', 'seria'
+}
+
+# Portuguese complex word suffixes
+PORTUGUESE_COMPLEX_SUFFIXES = [
+    'mente', 'ção', 'ções', 'dade', 'ismo', 'ista',
+    'ível', 'ável', 'ência', 'ância', 'mento', 'tivo'
+]
+
+# =============================================================================
+# SPEECH RATE THRESHOLDS (pt-BR focused)
+# =============================================================================
+
+# Articulation rate thresholds (syllables per minute)
+SPEECH_RATE_THRESHOLDS = {
+    'slow': 180,
+    'fast': 250
+}
+
+# Ideal speaking rates for presentations (words per minute)
+IDEAL_SPEAKING_RATE = {
+    'min': 140,
+    'max': 170
+}
+
+# =============================================================================
 # SPEECH RATE CONSTANTS (based on research paper)
 # =============================================================================
 

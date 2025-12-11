@@ -129,7 +129,7 @@ class SpeechAnalysisService:
         """
         Detect whether the text is in Portuguese or English.
         
-        Uses word frequency analysis with language-specific markers.
+        NOTE: Project is 100% focused on pt-BR, so this always returns pt-BR.
         
         Args:
             text: The transcribed text to analyze
@@ -137,44 +137,12 @@ class SpeechAnalysisService:
         Returns:
             LanguageDetectionResult with detected language and confidence
         """
-        words = self._extract_words(text)
-        words_set = set(words)
-        total_words = len(words)
-        
-        if total_words == 0:
-            return LanguageDetectionResult(
-                detected_language=LanguageCode.PORTUGUESE_BR,
-                confidence=0.0,
-            )
-        
-        # Count matches for each language
-        pt_matches = len(words_set.intersection(PORTUGUESE_MARKERS))
-        en_matches = len(words_set.intersection(ENGLISH_MARKERS))
-        
-        # Check for Portuguese-specific characters (diacritics)
-        pt_chars = len(re.findall(r'[áéíóúàâêôãõç]', text.lower()))
-        pt_char_bonus = min(pt_chars / max(len(text), 1) * 100, 5)
-        
-        # Calculate scores (normalized)
-        pt_score = (pt_matches / len(PORTUGUESE_MARKERS)) * 100 + pt_char_bonus
-        en_score = (en_matches / len(ENGLISH_MARKERS)) * 100
-        
-        # Determine language
-        if pt_score > en_score and pt_score > 5:
-            detected = LanguageCode.PORTUGUESE_BR
-            confidence = min(pt_score / (pt_score + en_score + 0.1), 0.99)
-        elif en_score > pt_score and en_score > 5:
-            detected = LanguageCode.ENGLISH_US
-            confidence = min(en_score / (pt_score + en_score + 0.1), 0.99)
-        else:
-            detected = LanguageCode.PORTUGUESE_BR
-            confidence = 0.5
-        
-        logger.info(f"🌍 Language detected: {detected.value} (confidence: {confidence:.2f})")
+        # Project is 100% focused on pt-BR, always return Portuguese
+        logger.info("🌍 Using pt-BR (projeto focado 100% em português)")
         
         return LanguageDetectionResult(
-            detected_language=detected,
-            confidence=round(confidence, 2),
+            detected_language=LanguageCode.PORTUGUESE_BR,
+            confidence=1.0,
         )
     
     # =========================================================================
